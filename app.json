@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "BloodIn",
+    "slug": "BloodIn",
+    "version": "1.0.0",
+    "scheme": "lifeorbit",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.bloodlink.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-router",
+      "expo-status-bar",
+      "expo-font",
+      "expo-splash-screen",
+      "react-native-edge-to-edge"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "0d13efe8-f713-4d7d-a7f6-5ba397f8785b"
+      }
+    },
+    "owner": "humbledev123"
+  }
+}

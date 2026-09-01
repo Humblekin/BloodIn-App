@@ -1,0 +1,29 @@
+# Implementation Tasks
+
+- [x] Phase 1 - 3 Foundation & Shell
+- [x] Complete Database Schema Migration (added remaining 18 tables)
+- [x] Build Service Layer (Auth, Profile, Connection, Communities, Messages, Requests, Campaigns, Moderation, Notifications, Location)
+- [x] Phase 4: Blood Requests
+    - [x] `RequestCard` and `UrgencyBadge` components
+    - [x] `useBloodRequests` hook
+    - [x] `requests/create.tsx` screen
+    - [x] `requests/[id].tsx` screen
+- [ ] Phase 5: Communities & Campaigns
+    - [ ] Community Components (`CommunityCard`, `MemberList`, `AnnouncementCard`)
+    - [ ] `useCommunity` hook
+    - [ ] `community/create.tsx` screen
+    - [ ] `community/manage.tsx` screen
+    - [ ] Campaign Components & Hooks
+    - [ ] `campaigns/create.tsx` screen
+    - [ ] `campaigns/[id].tsx` screen
+- [ ] Moderation & Safety
+    - [ ] `useReporting` and `useBlocking` hooks
+    - [ ] `profile/safety.tsx` (Safety Center)
+    - [ ] `ReportModal` and `BlockConfirmation` components
+- [ ] Shared Utilities
+    - [ ] `useDebounce`, `useNetworkStatus`, geo utils
+- [ ] Wire existing screens to services (replace mock data)
+    - [ ] Connect `messages/index.tsx` & `messages/[id].tsx`
+    - [ ] Connect `profile/connections.tsx`
+    - [ ] Connect `notifications.tsx`
+    - [ ] Connect `community/[id].tsx`
