@@ -113,21 +113,47 @@ $$;
 
 -- ═══════════════════════════════════════════════════════════
 -- C3. profiles UPDATE: block privilege escalation
+-- NOTE: RLS policy expressions cannot reference NEW/OLD (that syntax only
+-- exists inside trigger functions), so this is enforced with a BEFORE UPDATE
+-- trigger guarded by auth.uid(). Service role / SQL Editor updates (auth.uid()
+-- IS NULL or acting on another user) are NOT blocked, so admins can still set
+-- verification flags.
 -- ═══════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.prevent_profile_privilege_escalation()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF auth.uid() IS NULL OR auth.uid() <> NEW.id THEN
+        RETURN NEW;
+    END IF;
+
+    IF NEW.account_type      IS DISTINCT FROM OLD.account_type
+       OR NEW.is_premium      IS DISTINCT FROM OLD.is_premium
+       OR NEW.is_verified     IS DISTINCT FROM OLD.is_verified
+       OR NEW.verification_level IS DISTINCT FROM OLD.verification_level
+       OR NEW.human_verified  IS DISTINCT FROM OLD.human_verified
+       OR NEW.identity_verified IS DISTINCT FROM OLD.identity_verified
+    THEN
+        RAISE EXCEPTION 'Cannot modify privileged profile fields';
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS prevent_profile_privilege_escalation ON public.profiles;
+CREATE TRIGGER prevent_profile_privilege_escalation
+    BEFORE UPDATE ON public.profiles
+    FOR EACH ROW
+    EXECUTE FUNCTION public.prevent_profile_privilege_escalation();
+
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 
 CREATE POLICY "Users can update own profile"
     ON public.profiles FOR UPDATE
     USING (auth.uid() = id)
-    WITH CHECK (
-        auth.uid() = id
-        AND NEW.account_type IS NOT DISTINCT FROM OLD.account_type
-        AND NEW.is_premium      IS NOT DISTINCT FROM OLD.is_premium
-        AND NEW.is_verified     IS NOT DISTINCT FROM OLD.is_verified
-        AND NEW.verification_level IS NOT DISTINCT FROM OLD.verification_level
-        AND NEW.human_verified  IS NOT DISTINCT FROM OLD.human_verified
-        AND NEW.identity_verified IS NOT DISTINCT FROM OLD.identity_verified
-    );
+    WITH CHECK (auth.uid() = id);
 
 
 -- ═══════════════════════════════════════════════════════════
