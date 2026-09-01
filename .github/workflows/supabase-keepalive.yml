@@ -2,29 +2,20 @@ name: Supabase Keep-Alive
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
-  workflow_dispatch:
+    - cron: '0 */6 * * *'   # every 6 hours
+  workflow_dispatch:          # manual trigger
 
 jobs:
-  keepalive:
+  ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase project
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      - name: Ping Supabase REST API
         run: |
-          RESULT=$(curl -s -w $'\n%{http_code}' \
-            -H "apikey: ${SUPABASE_ANON_KEY}" \
-            "${SUPABASE_URL}/rest/v1/" --max-time 30)
-          CODE="${RESULT##*$'\n'}"
-          echo "Supabase responded with HTTP ${CODE}"
-          case "${CODE}" in
-            000)
-              echo "::error::Project unreachable - may be paused."
-              exit 1
-              ;;
-            *)
-              echo "Project reached (HTTP ${CODE}) - counted as activity."
-              ;;
-          esac
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/")
+          echo "Supabase responded with HTTP $status"
+          if [ "$status" -eq 0 ]; then
+            echo "Error: Could not reach Supabase"
+            exit 1
+          fi

@@ -1,9 +1,12 @@
 // Project LifeOrbit — Orbit Canvas component
 // Electron-configuration (Bohr model) style visualization: the current user is
 // the central "nucleus", surrounded by up to 3 concentric electron-shell rings.
-// Each shell holds a single profile node that revolves around the nucleus.
-import React, { useEffect, useMemo } from 'react';
-import { View, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
+// Each shell holds profile nodes that revolve around the nucleus.
+//
+// Self-measuring (onLayout) for proper phone fit, with enforced large gaps
+// between ring paths so nodes never feel cramped.
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { Droplet, Users } from 'lucide-react-native';
 import Animated, {
   useSharedValue,
@@ -19,16 +22,14 @@ import { Colors } from '../../../constants/colors';
 export interface OrbitNode {
   id: string;
   type: 'user' | 'community' | 'request';
-  distance: number; // 0 to 1
-  angle: number; // 0 to 360 (base offset within its ring)
+  distance: number;
+  angle: number;
   active?: boolean;
-  // Profile fields (user)
   displayName?: string;
   bio?: string;
   bloodGroup?: string;
   locationName?: string;
   avatarUrl?: string | null;
-  // Community / request labels
   communityName?: string;
   hospitalName?: string;
 }
@@ -40,18 +41,18 @@ interface OrbitCanvasProps {
 }
 
 const NODE_SIZE = 54;
-const MIN_NODE_SIZE = 46;      // shrunken nodes on smaller canvases
+const MIN_NODE_SIZE = 46;
 const CENTER_SIZE = 78;
 
 // One full revolution every 90 seconds — very slow, meditative motion
 const REVOLUTION_DURATION_MS = 90000;
 
-// Shell ring colors — every orbit uses the single brand colour so the shells
+// Shell ring colours — every orbit uses the single brand colour so the shells
 // read as one cohesive atom (like path lines in a Bohr model diagram).
 const RING_COLORS = [
-  'rgba(122, 31, 43, 0.85)',  // burgundy (primary brand) — shell 1
-  'rgba(122, 31, 43, 0.85)',  // burgundy — shell 2
-  'rgba(122, 31, 43, 0.85)',  // burgundy — shell 3
+  'rgba(122, 31, 43, 0.85)',
+  'rgba(122, 31, 43, 0.85)',
+  'rgba(122, 31, 43, 0.85)',
 ];
 
 // Soft outer glow underneath each ring to lift it off the background
@@ -67,6 +68,10 @@ const nodeColor = (type: OrbitNode['type']) => {
   return Colors.semantic.warning.DEFAULT;
 };
 
+export function orbitNodeColor(type: OrbitNode['type']): string {
+  return nodeColor(type);
+}
+
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
 interface NodeCircleProps {
@@ -81,8 +86,6 @@ interface NodeCircleProps {
 function NodeCircle({ node, center, nodeSize, ringRadius, revolution, onNodePress }: NodeCircleProps) {
   const color = nodeColor(node.type);
 
-  // Soft radial halo: concentric discs with decreasing opacity fake a gradient
-  // falloff, giving each active profile a calm, professional glow.
   const haloLayers = [
     { size: 1, opacity: 0.07 },
     { size: 0.66, opacity: 0.11 },
@@ -171,11 +174,23 @@ function NodeCircle({ node, center, nodeSize, ringRadius, revolution, onNodePres
 }
 
 export function OrbitCanvas({ nodes = [], centerUser, onNodePress }: OrbitCanvasProps) {
-  const { width, height } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
+  const [contentSize, setContentSize] = useState({
+    width: Math.min(windowWidth - 20, 340),
+    height: Math.max(280, windowHeight - 170),
+  });
+
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setContentSize({ width, height });
+    }
+  };
+
   // Use nearly the full available width so the structure reads larger on screen,
   // while keeping modest insets so it never crowds the edges or the UI chrome.
-  const usableHeight = height - 170;
-  const size = Math.max(0, Math.min(width - 20, usableHeight));
+  const size = Math.max(0, Math.min(contentSize.width, contentSize.height));
   const center = size / 2;
 
   const revolution = useSharedValue(0);
@@ -197,18 +212,14 @@ export function OrbitCanvas({ nodes = [], centerUser, onNodePress }: OrbitCanvas
   // ── Number of orbit rings: adapt to screen size and available space, max 3 ──
   const maxByScreen = size >= 300 ? 3 : size >= 220 ? 2 : 1;
 
-  // Available space determines how many rings can fit without overlapping.
+  // ── Ring gap: larger space between ring paths (proportional to node size) ──
   const usableRadius = center - nodeSize / 2 - 6;
   const innerRadius = CENTER_SIZE / 2 + nodeSize / 2 + 8;
-  const minGap = nodeSize; // gap between ring paths must clear a full node
-  const maxBySpace = Math.max(1, Math.floor((usableRadius - innerRadius) / minGap) + 1);
+  const ringGap = nodeSize * 1.6; // generous gap between ring paths
+  const maxBySpace = Math.max(1, Math.floor((usableRadius - innerRadius) / ringGap) + 1);
   const effectiveRingCount = Math.min(maxByScreen, maxBySpace);
 
   // ── Ring configuration ──
-  // Real data (nodes prop): distributed round-robin across the rings so each
-  // ring holds ~2-5 nodes, evenly spaced along the orbit path. Each ring's
-  // start angle is staggered so nodes on neighbouring rings never overlap.
-  // Mock data (no nodes yet): one profile per ring, each on its own angle.
   const systemConfig = useMemo(() => {
     const ringStagger = 120 / Math.max(1, effectiveRingCount);
 
@@ -251,111 +262,112 @@ export function OrbitCanvas({ nodes = [], centerUser, onNodePress }: OrbitCanvas
   }, [systemConfig, innerRadius, usableRadius]);
 
   return (
-    <View style={styles.container}>
-      <View style={{ width: size, height: size }}>
-        {/* Concentric electron-shell rings (Bohr model) — plain Views so they
-            render reliably on every platform including web */}
-        {ringRadii.map((r, i) => (
-          <React.Fragment key={i}>
-            {/* Soft glow under each shell to separate layers */}
-            <View
-              pointerEvents="none"
-              style={[
-                styles.ringGlow,
-                {
-                  width: r * 2,
-                  height: r * 2,
-                  left: center - r,
-                  top: center - r,
-                  borderColor: RING_GLOW_COLORS[i],
-                },
-              ]}
-            />
-            {/* Clear visible path line */}
-            <View
-              pointerEvents="none"
-              style={[
-                styles.ring,
-                {
-                  width: r * 2,
-                  height: r * 2,
-                  left: center - r,
-                  top: center - r,
-                  borderColor: RING_COLORS[i],
-                },
-              ]}
-            />
-          </React.Fragment>
-        ))}
+    <View style={styles.container} onLayout={onLayout}>
+      {size > 0 && (
+        <View style={{ width: size, height: size }}>
+          {/* Concentric electron-shell rings (Bohr model) */}
+          {ringRadii.map((r, i) => (
+            <React.Fragment key={i}>
+              {/* Soft glow under each shell to separate layers */}
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.ringGlow,
+                  {
+                    width: r * 2,
+                    height: r * 2,
+                    left: center - r,
+                    top: center - r,
+                    borderColor: RING_GLOW_COLORS[i],
+                  },
+                ]}
+              />
+              {/* Clear visible path line */}
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.ring,
+                  {
+                    width: r * 2,
+                    height: r * 2,
+                    left: center - r,
+                    top: center - r,
+                    borderColor: RING_COLORS[i],
+                  },
+                ]}
+              />
+            </React.Fragment>
+          ))}
 
-        {/* Center node ring — nucleus boundary */}
-        <View
-          pointerEvents="none"
-          style={[
-            styles.nucleusRing,
-            {
-              width: CENTER_SIZE + 24,
-              height: CENTER_SIZE + 24,
-              left: center - (CENTER_SIZE + 24) / 2,
-              top: center - (CENTER_SIZE + 24) / 2,
-            },
-          ]}
-        />
-
-        {/* Center user glow — the nucleus halo */}
-        {centerUser && (
+          {/* Center node ring — nucleus boundary */}
           <View
             pointerEvents="none"
             style={[
-              styles.centerGlow,
+              styles.nucleusRing,
               {
-                width: CENTER_SIZE * 1.7,
-                height: CENTER_SIZE * 1.7,
-                left: center - (CENTER_SIZE * 1.7) / 2,
-                top: center - (CENTER_SIZE * 1.7) / 2,
+                width: CENTER_SIZE + 24,
+                height: CENTER_SIZE + 24,
+                left: center - (CENTER_SIZE + 24) / 2,
+                top: center - (CENTER_SIZE + 24) / 2,
               },
             ]}
           />
-        )}
 
-        {/* Center user node — the nucleus */}
-        {centerUser && (
-          <View
-            style={[
-              styles.centerNode,
-              {
-                width: CENTER_SIZE,
-                height: CENTER_SIZE,
-                left: center - CENTER_SIZE / 2,
-                top: center - CENTER_SIZE / 2,
-              },
-            ]}
-          >
-            <Avatar
-              url={centerUser.avatarUrl}
-              name={centerUser.displayName}
-              size="lg"
-              showBorder
-              style={styles.centerAvatar}
+          {/* Center user glow — the nucleus halo */}
+          {centerUser && (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.centerGlow,
+                {
+                  width: CENTER_SIZE * 1.7,
+                  height: CENTER_SIZE * 1.7,
+                  left: center - (CENTER_SIZE * 1.7) / 2,
+                  top: center - (CENTER_SIZE * 1.7) / 2,
+                },
+              ]}
             />
-          </View>
-        )}
+          )}
 
-        {/* Revolving profile nodes — one per shell, moving around the nucleus */}
-        {systemConfig.map((ringNodes, i) =>
-          ringNodes.map((node) => (
-            <NodeCircle
-              key={node.id}
-              node={node}
-              center={center}
-              nodeSize={nodeSize}
-              ringRadius={ringRadii[i]}
-              revolution={revolution}
-              onNodePress={onNodePress}
-            />
-          ))
-        )}
-      </View>
+          {/* Center user node — the nucleus */}
+          {centerUser && (
+            <View
+              style={[
+                styles.centerNode,
+                {
+                  width: CENTER_SIZE,
+                  height: CENTER_SIZE,
+                  left: center - CENTER_SIZE / 2,
+                  top: center - CENTER_SIZE / 2,
+                },
+              ]}
+            >
+              <Avatar
+                url={centerUser.avatarUrl}
+                name={centerUser.displayName}
+                size="lg"
+                showBorder
+                style={styles.centerAvatar}
+              />
+            </View>
+          )}
+
+          {/* Revolving profile nodes — one per shell, moving around the nucleus */}
+          {systemConfig.map((ringNodes, i) =>
+            ringNodes.map((node) => (
+              <NodeCircle
+                key={node.id}
+                node={node}
+                center={center}
+                nodeSize={nodeSize}
+                ringRadius={ringRadii[i]}
+                revolution={revolution}
+                onNodePress={onNodePress}
+              />
+            ))
+          )}
+        </View>
+      )}
     </View>
   );
 }

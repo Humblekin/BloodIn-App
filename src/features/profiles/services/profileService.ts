@@ -1,6 +1,7 @@
 // Project LifeOrbit — Profile Service
 // Encapsulates all Supabase interactions for the profiles domain.
 
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase/client';
 import type { ProfileRow, PrivacySettingsRow } from '@/types/database';
 
@@ -62,16 +63,31 @@ export const profileService = {
 
     const fileName = `${userId}/avatar-${Date.now()}.${ext}`;
 
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    // Choose an upload carrier that works on the current platform.
+    //  - React Native: `fetch(file://...)` is not supported, so we send a native
+    //    FormData with a { uri, name, type } file entry (RN handles file URIs in
+    //    FormData natively).
+    //  - Web: fetch() supports data/blob URLs fine, so a Blob is ideal.
+    const isNative = Platform.OS !== 'web';
+
+    let body: Blob | FormData;
+    if (isNative) {
+      const form = new FormData();
+      form.append('cacheControl', '3600');
+      form.append('', { uri, name: `avatar-${Date.now()}.${ext}`, type: contentType } as unknown as Blob);
+      body = form;
+    } else {
+      const response = await fetch(uri);
+      body = await response.blob();
+    }
+
+    const uploadOptions = isNative
+      ? { upsert: true }
+      : { upsert: true, contentType, cacheControl: '3600' };
 
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(fileName, blob, {
-        upsert: true,
-        contentType,
-        cacheControl: '3600',
-      });
+      .upload(fileName, body, uploadOptions);
 
     if (uploadError) throw uploadError;
 

@@ -81,7 +81,8 @@ export default function EditProfileScreen() {
       Alert.alert('Photo updated', 'Your profile photo has been updated.');
     } catch (err) {
       console.error('[EditProfile] Avatar upload failed:', err);
-      Alert.alert('Upload failed', 'We could not update your profile photo. Please try again.');
+      const message = err && typeof err === 'object' && 'message' in err ? String((err as { message: unknown }).message) : String(err);
+      Alert.alert('Upload failed', `Could not update photo: ${message}`);
     } finally {
       setUploadingPhoto(false);
     }
