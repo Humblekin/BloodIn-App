@@ -10,7 +10,7 @@ interface UrgencyBadgeProps {
 export function UrgencyBadge({ level }: UrgencyBadgeProps) {
   let label = 'Normal';
   let backgroundColor = colors.status.success + '20'; // 20% opacity
-  let textColor = colors.status.success;
+  let textColor: string = colors.status.success;
 
   if (level === 2) {
     label = 'Urgent';

@@ -61,7 +61,7 @@ export default function RequestDetailScreen() {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Send Offer', 
-          onPress: async (msg) => {
+          onPress: async (msg?: string) => {
             try {
               await offerToHelp(request.id, session.user.id, msg);
               Alert.alert('Success', 'Your offer has been sent.');

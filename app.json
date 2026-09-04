@@ -8,11 +8,13 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to find nearby donors and requests"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#7A1F2B",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -28,15 +30,29 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-splash-screen",
-      "react-native-edge-to-edge"
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#7A1F2B"
+        }
+      ],
+      "react-native-edge-to-edge",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow BloodIn to access your location so you can find nearby donors and requests."
+        }
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "0d13efe8-f713-4d7d-a7f6-5ba397f8785b"
+        "projectId": "e8b18b21-abc5-4b73-9367-f8d656edf729"
       }
     },
-    "owner": "humbledev123"
+    "owner": "hakimdeveloper"
   }
 }

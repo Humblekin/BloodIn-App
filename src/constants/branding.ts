@@ -5,9 +5,9 @@
 export const Branding = {
   // ─── App Identity ───────────────────────────────────────
   appName: 'BloodIn',
-  appTagline: 'Donate Life',
+  appTagline: 'Connect. Share. Help.',
   appDescription:
-    'A secure platform connecting individuals, blood donation communities, and organizations through intelligent location-based discovery.',
+    'A blood group connection network helping individuals, communities, and organizations discover relevant people, connect, and coordinate help around blood needs.',
 
   // ─── Legal / Compliance ─────────────────────────────────
   companyName: 'BloodIn',

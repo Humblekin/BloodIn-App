@@ -63,8 +63,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       if (session?.user) {
         set({ session, user: session.user });
-        // Fetch profile data in parallel
-        await Promise.all([
+        // Profile data is non-blocking; load it after the initial route can render.
+        void Promise.all([
           get().fetchProfile(),
           get().fetchPrivacySettings(),
         ]);

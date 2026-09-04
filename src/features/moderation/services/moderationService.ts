@@ -15,6 +15,7 @@ export interface ReportCreate {
   reported_community_id?: string;
   reported_request_id?: string;
   reported_message_id?: string;
+  reported_post_id?: string;
   reason: ReportReason;
   description?: string;
 }

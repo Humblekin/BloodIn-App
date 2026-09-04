@@ -63,11 +63,11 @@ export function Header({
         </View>
 
         <View style={styles.centerSection}>
-          {title && (
+          {title ? (
             <Text style={styles.title} numberOfLines={1}>
               {title}
             </Text>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.rightSection}>

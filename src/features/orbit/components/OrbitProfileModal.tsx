@@ -11,13 +11,16 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { X, MapPin, MessageCircle, UserPlus, Droplet, Users, Building2 } from 'lucide-react-native';
+import { X, MapPin, MessageCircle, UserPlus, Droplet, Users, Building2, UserX, Flag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar } from '../../../components/ui/Avatar';
 import { Button } from '../../../components/ui/Button';
+import { PremiumBadge } from '../../../features/premium/components/PremiumBadge';
 import { useAuthStore } from '../../auth/stores/authStore';
 import { messageService } from '../../messages/services/messageService';
 import { connectionService } from '../../connections/services/connectionService';
+import { BlockConfirmation } from '../../moderation/components/BlockConfirmation';
+import { ReportModal } from '../../moderation/components/ReportModal';
 import type { OrbitNode } from './OrbitCanvas';
 import { Colors } from '../../../constants/colors';
 import { FontFamily, FontSize } from '../../../constants/typography';
@@ -33,6 +36,8 @@ export function OrbitProfileModal({ node, onClose }: OrbitProfileModalProps) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const [connecting, setConnecting] = useState(false);
+  const [showBlock, setShowBlock] = useState(false);
+  const [showReport, setShowReport] = useState(false);
 
   if (!node) return null;
 
@@ -101,6 +106,7 @@ export function OrbitProfileModal({ node, onClose }: OrbitProfileModalProps) {
   const TypeIcon = node.type === 'request' ? Droplet : node.type === 'community' ? Users : UserPlus;
 
   return (
+    <>
     <Modal visible transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.shell}>
         <TouchableOpacity style={[styles.closeButton, { top: Math.max(insets.top, Spacing.md) }]} onPress={onClose}>
@@ -125,7 +131,10 @@ export function OrbitProfileModal({ node, onClose }: OrbitProfileModalProps) {
           <View style={styles.headerRow}>
             <Avatar url={node.avatarUrl} name={title} size="xl" style={styles.avatar} showBorder />
             <View style={styles.headerText}>
-              <Text style={styles.name} numberOfLines={2}>{title}</Text>
+              <View style={styles.nameRow}>
+                <Text style={styles.name} numberOfLines={2}>{title}</Text>
+                {node.isPremium && <PremiumBadge size="sm" />}
+              </View>
               <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
               {node.locationName ? (
                 <View style={styles.locationRow}>
@@ -174,9 +183,37 @@ export function OrbitProfileModal({ node, onClose }: OrbitProfileModalProps) {
               />
             )}
           </View>
+
+          {node.type === 'user' && (
+            <View style={styles.safetyRow}>
+              <TouchableOpacity style={styles.safetyButton} onPress={() => setShowReport(true)}>
+                <Flag size={14} color={Colors.dark.tertiary} />
+                <Text style={styles.safetyText}>Report</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.safetyButton} onPress={() => setShowBlock(true)}>
+                <UserX size={14} color={Colors.semantic.critical.DEFAULT} />
+                <Text style={[styles.safetyText, { color: Colors.semantic.critical.DEFAULT }]}>Block</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </ScrollView>
       </View>
     </Modal>
+
+      <BlockConfirmation
+        visible={showBlock}
+        onClose={() => setShowBlock(false)}
+        targetId={node.id}
+        targetName={title}
+        onSuccess={onClose}
+      />
+      <ReportModal
+        visible={showReport}
+        onClose={() => setShowReport(false)}
+        targetType="user"
+        targetId={node.id}
+      />
+    </>
   );
 }
 
@@ -229,6 +266,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingBottom: Spacing.xs,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
   name: {
     fontFamily: FontFamily.bold,
     fontSize: FontSize.xl,
@@ -275,5 +317,24 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  safetyRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+    marginTop: Spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border.light,
+  },
+  safetyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  safetyText: {
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.xs,
+    color: Colors.dark.tertiary,
   },
 });

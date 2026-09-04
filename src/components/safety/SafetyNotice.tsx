@@ -34,7 +34,7 @@ export function SafetyNotice({
     const textData = SafetyTexts[type as keyof typeof SafetyTexts];
     if (typeof textData === 'string') {
       body = textData;
-    } else if (textData && typeof textData === 'object' && 'title' in textData) {
+    } else if (textData && typeof textData === 'object' && 'title' in textData && 'body' in textData) {
       title = textData.title;
       body = textData.body;
     }

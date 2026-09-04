@@ -8,6 +8,7 @@ export interface CommunityRow {
   description: string | null;
   logo_url: string | null;
   cover_url: string | null;
+  city_id: number | null;
   join_policy: 'open' | 'request' | 'invite_only';
   is_verified: boolean;
   is_active: boolean;

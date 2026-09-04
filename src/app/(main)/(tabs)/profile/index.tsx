@@ -9,7 +9,8 @@ import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 import { useRouter } from 'expo-router';
-import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight } from 'lucide-react-native';
+import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight, Star } from 'lucide-react-native';
+import { PremiumBadge } from '@/features/premium/components/PremiumBadge';
 
 export default function ProfileScreen() {
   const { user, profile, signOut } = useAuthStore();
@@ -40,6 +41,12 @@ export default function ProfileScreen() {
       icon: <ShieldCheck size={22} color={Colors.primary.DEFAULT} />,
       onPress: () => router.push('/(main)/(tabs)/profile/safety'),
     },
+    {
+      label: 'Premium',
+      description: profile?.is_premium ? 'You are a Premium member' : 'Upgrade for priority features',
+      icon: <Star size={22} color={Colors.premium} />,
+      onPress: () => router.push('/(main)/(tabs)/profile/premium'),
+    },
   ];
 
   return (
@@ -53,7 +60,10 @@ export default function ProfileScreen() {
             size="xl"
             showBorder
           />
-          <Text style={styles.name}>{profile?.display_name || 'Loading...'}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{profile?.display_name || 'Loading...'}</Text>
+            {profile?.is_premium && <PremiumBadge size="sm" />}
+          </View>
           <Text style={styles.email}>{user?.email}</Text>
 
           {profile?.blood_group && (
@@ -104,12 +114,17 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
     marginBottom: Spacing['3xl'],
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+    marginBottom: Spacing['2xs'],
+  },
   name: {
     fontFamily: FontFamily.bold,
     fontSize: FontSize.xl,
     color: Colors.dark.DEFAULT,
-    marginTop: Spacing.md,
-    marginBottom: Spacing['2xs'],
   },
   email: {
     fontFamily: FontFamily.regular,

@@ -8,22 +8,34 @@
     - [x] `useBloodRequests` hook
     - [x] `requests/create.tsx` screen
     - [x] `requests/[id].tsx` screen
-- [ ] Phase 5: Communities & Campaigns
-    - [ ] Community Components (`CommunityCard`, `MemberList`, `AnnouncementCard`)
-    - [ ] `useCommunity` hook
-    - [ ] `community/create.tsx` screen
-    - [ ] `community/manage.tsx` screen
-    - [ ] Campaign Components & Hooks
-    - [ ] `campaigns/create.tsx` screen
-    - [ ] `campaigns/[id].tsx` screen
-- [ ] Moderation & Safety
-    - [ ] `useReporting` and `useBlocking` hooks
-    - [ ] `profile/safety.tsx` (Safety Center)
-    - [ ] `ReportModal` and `BlockConfirmation` components
-- [ ] Shared Utilities
-    - [ ] `useDebounce`, `useNetworkStatus`, geo utils
-- [ ] Wire existing screens to services (replace mock data)
-    - [ ] Connect `messages/index.tsx` & `messages/[id].tsx`
-    - [ ] Connect `profile/connections.tsx`
-    - [ ] Connect `notifications.tsx`
-    - [ ] Connect `community/[id].tsx`
+- [x] Phase 5: Communities & Campaigns
+    - [x] Community Components (`CommunityCard`, `MemberList`, `AnnouncementCard`)
+    - [x] `useCommunity` hook
+    - [x] `community/create.tsx` screen
+    - [x] `community/manage.tsx` screen
+    - [x] Campaign Components & Hooks
+    - [x] `campaigns/create.tsx` screen
+    - [x] `campaigns/[id].tsx` screen
+- [x] Phase 6: Posts & Network Feed
+    - [x] `postService`, `usePosts` hook, PostCard component
+    - [x] `feed.tsx` (Feed tab), `posts/create.tsx`, `posts/[id].tsx`
+    - [x] Post visibility RLS (`can_view_post` helper, blocked-user exclusion)
+    - [x] `post_comments`, `post_reactions` tables + RLS
+- [x] Moderation & Safety
+    - [x] `useReporting` and `useBlocking` hooks
+    - [x] `profile/safety.tsx` (Safety Center — blocked users list, unblock, guidelines)
+    - [x] `ReportModal` component (wired into posts, user profiles, connections)
+    - [x] `BlockConfirmation` component (wired into OrbitProfileModal, connections)
+- [x] Shared Utilities
+    - [x] `useDebounce`, `useNetworkStatus`, geo utils
+- [x] Wire existing screens to services (replace mock data)
+    - [x] Connect `messages/index.tsx` & `messages/[id].tsx`
+    - [x] Connect `profile/connections.tsx`
+    - [x] Connect `notifications.tsx`
+    - [x] Connect `community/[id].tsx`
+- [x] Premium System
+    - [x] `upgrade_to_premium` SECURITY DEFINER RPC (bypasses privilege-escalation trigger)
+    - [x] `find_nearby_users` RPC returns `is_premium`
+    - [x] `premiumService.ts`, `PremiumBadge`, `profile/premium.tsx` upgrade screen
+    - [x] Premium nav link + badge on profile, orbit modal, connections
+    - [x] Feed boost perk (premium authors' 24h posts float to top)

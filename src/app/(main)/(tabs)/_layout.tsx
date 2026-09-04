@@ -1,7 +1,7 @@
 // Project LifeOrbit — Tab Navigator
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { Home, Compass, Search, Droplet, User } from 'lucide-react-native';
+import { Home, Compass, Search, Droplet, Newspaper, User } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -56,6 +56,13 @@ export default function TabLayout() {
         options={{
           title: 'Requests',
           tabBarIcon: ({ color, size }) => <Droplet size={size} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="feed"
+        options={{
+          title: 'Feed',
+          tabBarIcon: ({ color, size }) => <Newspaper size={size} color={color} />,
         }}
       />
       <Tabs.Screen

@@ -6,6 +6,8 @@ export default function MainLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="notifications" />
+      <Stack.Screen name="posts/create" />
+      <Stack.Screen name="posts/[id]" />
       <Stack.Screen name="campaigns/create" />
       <Stack.Screen name="campaigns/[id]" />
       <Stack.Screen name="community/create" />

@@ -109,7 +109,7 @@ export default function SetupProfileScreen() {
               <SafetyNotice 
                 type="custom" 
                 variant="info" 
-                customBody="Adding your blood group helps others find you when they need specific donors. It does not certify medical eligibility." 
+                customBody="Adding your blood group helps relevant people find you and connect for help. It does not certify medical eligibility." 
                 style={{ marginBottom: Spacing.md }}
               />
               <View style={styles.bloodGrid}>

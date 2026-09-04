@@ -10,7 +10,7 @@ import { AlertCircle, X } from 'lucide-react-native';
 interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
-  targetType: 'user' | 'community' | 'request' | 'message';
+  targetType: 'user' | 'community' | 'request' | 'message' | 'post';
   targetId: string;
 }
 
@@ -44,6 +44,7 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
       if (targetType === 'community') data.reported_community_id = targetId;
       if (targetType === 'request') data.reported_request_id = targetId;
       if (targetType === 'message') data.reported_message_id = targetId;
+      if (targetType === 'post') data.reported_post_id = targetId;
 
       await submitReport(session.user.id, data);
       

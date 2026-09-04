@@ -25,6 +25,10 @@ import type {
   CampaignType,
   CampaignStatus,
   ParticipationStatus,
+  PostPurpose,
+  PostVisibility,
+  PostStatus,
+  PostReactionType,
   ConversationType,
   NotificationType,
   ReportReason,
@@ -304,6 +308,40 @@ export interface CampaignParticipantRow {
   registered_at: string;
 }
 
+// ─── Posts & Network Feed ────────────────────────────────
+export interface PostRow {
+  id: string;
+  author_id: string;
+  purpose: PostPurpose;
+  visibility: PostVisibility;
+  content: string;
+  blood_group: BloodGroup | null;
+  community_id: string | null;
+  city_id: number | null;
+  region_id: number | null;
+  country_id: number | null;
+  shared_from_post_id: string | null;
+  status: PostStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PostCommentRow {
+  id: string;
+  post_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+}
+
+export interface PostReactionRow {
+  id: string;
+  post_id: string;
+  user_id: string;
+  reaction: PostReactionType;
+  created_at: string;
+}
+
 // ─── Notifications ────────────────────────────────────────
 export interface NotificationRow {
   id: string;
@@ -353,6 +391,7 @@ export interface ReportRow {
   reported_community_id: string | null;
   reported_request_id: string | null;
   reported_message_id: string | null;
+  reported_post_id: string | null;
   reason: ReportReason;
   description: string | null;
   status: ReportStatus;

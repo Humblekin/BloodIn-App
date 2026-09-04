@@ -7,7 +7,7 @@ export function useNetworkStatus() {
   useEffect(() => {
     const checkNetwork = async () => {
       const state = await Network.getNetworkStateAsync();
-      setIsConnected(state.isConnected);
+      setIsConnected(state.isConnected ?? null);
     };
 
     checkNetwork();

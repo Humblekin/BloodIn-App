@@ -9,6 +9,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="edit" options={{ presentation: 'modal' }} />
       <Stack.Screen name="connections" />
       <Stack.Screen name="safety" />
+      <Stack.Screen name="premium" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

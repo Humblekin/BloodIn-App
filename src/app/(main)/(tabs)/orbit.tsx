@@ -1,23 +1,20 @@
 // Project LifeOrbit — Orbit Screen
-// Radar-style visualization of nearby users, requests and communities.
-// Tapping a node opens a LinkedIn-style profile sheet.
+// Radar-style visualization of the user's nearby network (real profiles from
+// find_nearby_users). Tapping a node opens a LinkedIn-style profile sheet.
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, withRepeat, withTiming, Easing, useAnimatedStyle } from 'react-native-reanimated';
-import { Activity, Info } from 'lucide-react-native';
-import { OrbitCanvas, OrbitNode, orbitNodeColor } from '@/features/orbit/components/OrbitCanvas';
+import { Activity } from 'lucide-react-native';
+import { OrbitCanvas, OrbitNode } from '@/features/orbit/components/OrbitCanvas';
 import { OrbitProfileModal } from '@/features/orbit/components/OrbitProfileModal';
+import { orbitService } from '@/features/orbit/services/orbitService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize, LetterSpacing } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 
-const LEGEND = [
-  { label: 'Donor', color: orbitNodeColor('user') },
-  { label: 'Request', color: orbitNodeColor('request') },
-  { label: 'Community', color: orbitNodeColor('community') },
-] as const;
+// Legend removed — labels (Member/Request/Community) intentionally hidden
 
 function LiveIndicator() {
   const pulse = useSharedValue(0);
@@ -44,6 +41,36 @@ export default function OrbitScreen() {
   const { profile } = useAuthStore();
   const insets = useSafeAreaInsets();
   const [selectedNode, setSelectedNode] = useState<OrbitNode | null>(null);
+  const [nodes, setNodes] = useState<OrbitNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setError(null);
+        const nearby = await orbitService.getNearbyNodes();
+        if (active) setNodes(nearby);
+      } catch (err) {
+        console.warn('[Orbit] Failed to load network:', err);
+        if (active) setError('Could not load your network right now.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const statusText = error
+    ? error
+    : loading
+      ? 'Building your network…'
+      : nodes.length > 0
+        ? `Showing ${nodes.length} relevant ${nodes.length === 1 ? 'member' : 'members'} in your network`
+        : 'No nearby network members yet';
 
   return (
     <View style={styles.screen}>
@@ -58,36 +85,29 @@ export default function OrbitScreen() {
         </View>
 
         <Text style={styles.title}>Network Orbit</Text>
-        <Text style={styles.status}>Scanning nearby donors, requests &amp; communities</Text>
+        <Text style={styles.status}>{statusText}</Text>
       </View>
 
       {/* Orbit Visualization */}
       <View style={styles.canvas}>
-        <OrbitCanvas
-          centerUser={
-            profile
-              ? { displayName: profile.display_name, avatarUrl: profile.avatar_url }
-              : { displayName: 'You', avatarUrl: null }
-          }
-          onNodePress={setSelectedNode}
-        />
+        {loading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator color={Colors.primary.DEFAULT} />
+          </View>
+        ) : (
+          <OrbitCanvas
+            nodes={nodes}
+            centerUser={
+              profile
+                ? { displayName: profile.display_name, avatarUrl: profile.avatar_url }
+                : { displayName: 'You', avatarUrl: null }
+            }
+            onNodePress={setSelectedNode}
+          />
+        )}
       </View>
 
-      {/* Legend / key */}
-      <View style={styles.footer}>
-        <View style={styles.legend}>
-          {LEGEND.map((item) => (
-            <View key={item.label} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-              <Text style={styles.legendText}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-        <View style={styles.hint}>
-          <Info size={12} color="rgba(255,255,255,0.35)" />
-          <Text style={styles.hintText}>Tap a node to connect</Text>
-        </View>
-      </View>
+      {/* Legend and hint intentionally removed for a cleaner Orbit view */}
 
       <OrbitProfileModal node={selectedNode} onClose={() => setSelectedNode(null)} />
     </View>
@@ -163,6 +183,11 @@ const styles = StyleSheet.create({
   },
   canvas: {
     flex: 1,
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     paddingTop: Spacing.sm,

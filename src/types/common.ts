@@ -57,6 +57,19 @@ export type CampaignType = 'donation_drive' | 'awareness' | 'registration' | 'ot
 export type CampaignStatus = 'draft' | 'upcoming' | 'active' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'interested' | 'registered' | 'attended' | 'cancelled';
 
+// ─── Posts ────────────────────────────────────────────────
+export type PostPurpose =
+  | 'connection'
+  | 'assistance'
+  | 'awareness'
+  | 'community'
+  | 'campaign'
+  | 'organization';
+
+export type PostVisibility = 'public' | 'connections' | 'community' | 'private';
+export type PostStatus = 'active' | 'hidden';
+export type PostReactionType = 'support' | 'helpful' | 'interested';
+
 // ─── Messaging ────────────────────────────────────────────
 export type ConversationType = 'direct' | 'request';
 

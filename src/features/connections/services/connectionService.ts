@@ -12,8 +12,8 @@ export interface ConnectionRequest {
   created_at: string;
   updated_at: string;
   // Joined profile data
-  sender_profile?: { display_name: string; avatar_url: string | null; blood_group: string | null };
-  receiver_profile?: { display_name: string; avatar_url: string | null; blood_group: string | null };
+  sender_profile?: { display_name: string; avatar_url: string | null; blood_group: string | null; is_premium?: boolean };
+  receiver_profile?: { display_name: string; avatar_url: string | null; blood_group: string | null; is_premium?: boolean };
 }
 
 export interface Connection {
@@ -23,7 +23,7 @@ export interface Connection {
   status: string;
   created_at: string;
   // Joined profile of the other user
-  other_user?: { id: string; display_name: string; avatar_url: string | null; blood_group: string | null };
+  other_user?: { id: string; display_name: string; avatar_url: string | null; blood_group: string | null; is_premium?: boolean };
 }
 
 export const connectionService = {
@@ -34,8 +34,8 @@ export const connectionService = {
       .from('connections')
       .select(`
         *,
-        requester:profiles!connections_requester_id_fkey(id, display_name, avatar_url, blood_group),
-        recipient:profiles!connections_recipient_id_fkey(id, display_name, avatar_url, blood_group)
+        requester:profiles!connections_requester_id_fkey(id, display_name, avatar_url, blood_group, is_premium),
+        recipient:profiles!connections_recipient_id_fkey(id, display_name, avatar_url, blood_group, is_premium)
       `)
       .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
       .eq('status', 'accepted');
@@ -53,8 +53,8 @@ export const connectionService = {
       .from('connection_requests')
       .select(`
         *,
-        sender_profile:profiles!connection_requests_sender_id_fkey(display_name, avatar_url, blood_group),
-        receiver_profile:profiles!connection_requests_receiver_id_fkey(display_name, avatar_url, blood_group)
+        sender_profile:profiles!connection_requests_sender_id_fkey(display_name, avatar_url, blood_group, is_premium),
+        receiver_profile:profiles!connection_requests_receiver_id_fkey(display_name, avatar_url, blood_group, is_premium)
       `)
       .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
       .eq('status', 'pending')

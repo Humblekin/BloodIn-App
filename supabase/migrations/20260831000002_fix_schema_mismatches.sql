@@ -46,9 +46,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Update existing rows
-UPDATE public.connections SET status = 'declined' WHERE status = 'rejected';
-UPDATE public.connections SET status = 'cancelled' WHERE status = 'blocked';
+-- NOTE: Updating existing rows to use the new enum values must be run
+-- in a separate migration/statement after the new enum values are committed.
+-- See supabase/migrations/20260902000005_connection_status_updates.sql
 
 -- Rename columns
 DO $$ BEGIN

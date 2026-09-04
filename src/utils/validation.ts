@@ -29,9 +29,7 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
   accountType: z.enum(['individual', 'community_admin', 'organization_admin']),
-  safetyAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'You must acknowledge the safety notice' }),
-  }),
+  safetyAcknowledged: z.literal(true, { message: 'You must acknowledge the safety notice' }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',
   path: ['confirmPassword'],
@@ -121,9 +119,7 @@ export const bloodRequestSchema = z.object({
   countryId: z.number().int().positive().optional().nullable(),
   regionId: z.number().int().positive().optional().nullable(),
   cityId: z.number().int().positive().optional().nullable(),
-  safetyAcknowledged: z.literal(true, {
-    errorMap: () => ({ message: 'You must acknowledge the safety notice' }),
-  }),
+  safetyAcknowledged: z.literal(true, { message: 'You must acknowledge the safety notice' }),
 });
 
 export type BloodRequestFormData = z.infer<typeof bloodRequestSchema>;

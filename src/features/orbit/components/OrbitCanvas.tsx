@@ -32,6 +32,7 @@ export interface OrbitNode {
   avatarUrl?: string | null;
   communityName?: string;
   hospitalName?: string;
+  isPremium?: boolean;
 }
 
 interface OrbitCanvasProps {
@@ -215,51 +216,44 @@ export function OrbitCanvas({ nodes = [], centerUser, onNodePress }: OrbitCanvas
   // ── Ring gap: larger space between ring paths (proportional to node size) ──
   const usableRadius = center - nodeSize / 2 - 6;
   const innerRadius = CENTER_SIZE / 2 + nodeSize / 2 + 8;
-  const ringGap = nodeSize * 1.6; // generous gap between ring paths
-  const maxBySpace = Math.max(1, Math.floor((usableRadius - innerRadius) / ringGap) + 1);
+  const radialSpan = Math.max(0, usableRadius - innerRadius);
+  const minimumRingGap = nodeSize * 0.75;
+  const maxBySpace = Math.max(1, Math.floor(radialSpan / minimumRingGap) + 1);
   const effectiveRingCount = Math.min(maxByScreen, maxBySpace);
 
   // ── Ring configuration ──
+  // Relevance-tiered: the service returns nodes ordered most-relevant first
+  // (connected → available → nearest). We split that order across the rings so
+  // the inner ring holds the most relevant members and the outer ring the
+  // broader local network.
   const systemConfig = useMemo(() => {
     const ringStagger = 120 / Math.max(1, effectiveRingCount);
 
-    if (nodes.length > 0) {
-      const groups: OrbitNode[][] = Array.from({ length: effectiveRingCount }, () => []);
-      nodes.forEach((node, idx) => groups[idx % effectiveRingCount].push(node));
-      return groups.map((ringNodes, ringIndex) =>
-        ringNodes.map((node, i) => ({
-          ...node,
-          angle: (360 / ringNodes.length) * i + ringIndex * ringStagger,
-        }))
-      );
-    }
+    const groups: OrbitNode[][] = Array.from({ length: effectiveRingCount }, () => []);
+    nodes.forEach((node, idx) => {
+      const ringIndex = effectiveRingCount === 1
+        ? 0
+        : Math.min(effectiveRingCount - 1, Math.floor((idx / Math.max(1, nodes.length)) * effectiveRingCount));
+      groups[ringIndex].push(node);
+    });
 
-    const mockGroups: OrbitNode[][] = [
-      // Ring 1 (innermost) — 1 profile
-      [
-        { id: 'mock-1', type: 'user', distance: 0, angle: 0, active: true, displayName: 'Sarah K.', bloodGroup: 'O+', bio: 'Humanitarian & regular donor', locationName: 'Kampala' },
-      ],
-      // Ring 2 — 1 profile
-      [
-        { id: 'mock-4', type: 'user', distance: 0, angle: ringStagger, active: true, displayName: 'Amina T.', bloodGroup: 'AB+', bio: 'Nurse & volunteer donor', locationName: 'Entebbe' },
-      ],
-      // Ring 3 — 1 profile
-      [
-        { id: 'mock-8', type: 'user', distance: 0, angle: ringStagger * 2, active: true, displayName: 'Grace N.', bloodGroup: 'A+', bio: 'Regular donor', locationName: 'Entebbe' },
-      ],
-    ];
-
-    return mockGroups.slice(0, effectiveRingCount);
+    return groups.map((ringNodes, ringIndex) =>
+      ringNodes.map((node, i) => ({
+        ...node,
+        angle: ringNodes.length === 1 ? 0 : (360 / ringNodes.length) * i + ringIndex * ringStagger,
+      }))
+    );
   }, [nodes, effectiveRingCount]);
 
-  // ── Ring radii — evenly spaced within the available canvas ──
+  // ── Ring radii — fill the measured radial span without overflowing ──
   const ringRadii = useMemo(() => {
     const count = systemConfig.length;
+
     return Array.from({ length: count }, (_, i) => {
-      const t = count === 1 ? 0.55 : (i + 1) / (count + 1);
-      return innerRadius + (usableRadius - innerRadius) * t;
+      if (count === 1) return innerRadius + radialSpan / 2;
+      return innerRadius + (radialSpan * i) / (count - 1);
     });
-  }, [systemConfig, innerRadius, usableRadius]);
+  }, [systemConfig, innerRadius, usableRadius, radialSpan]);
 
   return (
     <View style={styles.container} onLayout={onLayout}>

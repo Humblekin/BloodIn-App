@@ -128,6 +128,12 @@ BEGIN
         RETURN NEW;
     END IF;
 
+    -- Allow privileged updates when executed by a trusted service RPC.
+    -- The RPC should call: PERFORM set_config('app.trusted_action', 'upgrade_to_premium', true);
+    IF current_setting('app.trusted_action', true) = 'upgrade_to_premium' THEN
+        RETURN NEW;
+    END IF;
+
     IF NEW.account_type      IS DISTINCT FROM OLD.account_type
        OR NEW.is_premium      IS DISTINCT FROM OLD.is_premium
        OR NEW.is_verified     IS DISTINCT FROM OLD.is_verified

@@ -111,6 +111,9 @@ export const Colors = {
   white: '#FFFFFF',
   black: '#000000',
   transparent: 'transparent',
+
+  // ─── Premium ───────────────────────────────────────────
+  premium: '#D97706',
 } as const;
 
 // Type for accessing color paths

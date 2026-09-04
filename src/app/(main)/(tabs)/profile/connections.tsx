@@ -8,18 +8,26 @@ import { Button } from '@/components/ui/Button';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
-import { UserCheck, Clock } from 'lucide-react-native';
+import { UserCheck, Clock, MessageCircle } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useConnections } from '@/features/connections/hooks/useConnections';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { messageService } from '@/features/messages/services/messageService';
+import { BlockConfirmation } from '@/features/moderation/components/BlockConfirmation';
+import { ReportModal } from '@/features/moderation/components/ReportModal';
+import { PremiumBadge } from '@/features/premium/components/PremiumBadge';
 import type { Connection, ConnectionRequest } from '@/features/connections/services/connectionService';
 
 export default function ConnectionsScreen() {
+  const router = useRouter();
   const { session } = useAuthStore();
   const { fetchConnections, fetchPendingRequests, respondToRequest, loading } = useConnections();
   
   const [filter, setFilter] = useState<'all' | 'pending'>('all');
   const [connections, setConnections] = useState<Connection[]>([]);
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
+  const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
+  const [reportTarget, setReportTarget] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.user.id) {
@@ -42,7 +50,9 @@ export default function ConnectionsScreen() {
   const handleRespond = async (requestId: string, action: 'accepted' | 'declined') => {
     try {
       await respondToRequest(requestId, action);
-      Alert.alert('Success', `Connection ${action}.`);
+      Alert.alert('Success', action === 'accepted'
+        ? 'You are now connected. You can message this person.'
+        : 'Connection request declined.');
       loadData();
     } catch (err: any) {
       Alert.alert('Error', err.message || `Failed to ${action} request`);
@@ -51,22 +61,64 @@ export default function ConnectionsScreen() {
 
   const pendingReceivedCount = requests.filter(r => r.receiver_id === session?.user.id).length;
 
-  const renderActiveConnection = ({ item }: { item: Connection }) => (
-    <View style={styles.card}>
-      <Avatar name={item.other_user?.display_name || 'User'} imageUrl={item.other_user?.avatar_url || undefined} size="md" />
-      <View style={styles.cardContent}>
-        <Text style={styles.cardName}>{item.other_user?.display_name}</Text>
-        <View style={styles.cardMeta}>
-          {item.other_user?.blood_group && <Badge label={item.other_user.blood_group} variant="outline" />}
-          
-          <View style={styles.statusRow}>
-            <UserCheck size={14} color={Colors.semantic.success.DEFAULT} />
-            <Text style={[styles.statusText, { color: Colors.semantic.success.DEFAULT }]}>Connected</Text>
+  const handleMessage = async (otherUserId: string) => {
+    if (!session?.user.id) return;
+    try {
+      const conversationId = await messageService.getOrCreateDirectConversation(session.user.id, otherUserId);
+      router.push(`/(main)/messages/${conversationId}`);
+    } catch (err) {
+      Alert.alert('Error', 'Could not open a conversation right now.');
+    }
+  };
+
+  const renderActiveConnection = ({ item }: { item: Connection }) => {
+    const otherUserId = item.other_user?.id;
+    const displayName = item.other_user?.display_name || 'User';
+
+    const handleLongPress = () => {
+      if (!otherUserId) return;
+      Alert.alert(displayName, 'What would you like to do?', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Report', style: 'default', onPress: () => setReportTarget(otherUserId) },
+        { text: 'Block', style: 'destructive', onPress: () => setBlockTarget({ id: otherUserId, name: displayName }) },
+      ]);
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.7}
+        onLongPress={handleLongPress}
+      >
+        <Avatar name={item.other_user?.display_name || 'User'} imageUrl={item.other_user?.avatar_url || undefined} size="md" />
+        <View style={styles.cardContent}>
+          <View style={styles.cardNameRow}>
+            <Text style={styles.cardName}>{item.other_user?.display_name}</Text>
+            {item.other_user?.is_premium && <PremiumBadge size="sm" />}
+          </View>
+          <View style={styles.cardMeta}>
+            {item.other_user?.blood_group && <Badge label={item.other_user.blood_group} variant="outline" />}
+            
+            <View style={styles.statusRow}>
+              <UserCheck size={14} color={Colors.semantic.success.DEFAULT} />
+              <Text style={[styles.statusText, { color: Colors.semantic.success.DEFAULT }]}>Connected</Text>
+            </View>
           </View>
         </View>
-      </View>
-    </View>
-  );
+
+        {otherUserId && (
+          <Button
+            title="Message"
+            variant="outline"
+            size="sm"
+            leftIcon={<MessageCircle size={14} color={Colors.primary.DEFAULT} />}
+            style={styles.actionBtn}
+            onPress={() => handleMessage(otherUserId)}
+          />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   const renderPendingRequest = ({ item }: { item: ConnectionRequest }) => {
     const isReceived = item.receiver_id === session?.user.id;
@@ -76,7 +128,10 @@ export default function ConnectionsScreen() {
       <View style={styles.card}>
         <Avatar name={profile?.display_name || 'User'} imageUrl={profile?.avatar_url || undefined} size="md" />
         <View style={styles.cardContent}>
-          <Text style={styles.cardName}>{profile?.display_name}</Text>
+          <View style={styles.cardNameRow}>
+            <Text style={styles.cardName}>{profile?.display_name}</Text>
+            {profile?.is_premium && <PremiumBadge size="sm" />}
+          </View>
           <View style={styles.cardMeta}>
             {profile?.blood_group && <Badge label={profile.blood_group} variant="outline" />}
             
@@ -137,13 +192,30 @@ export default function ConnectionsScreen() {
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Text style={styles.emptyText}>
-                  {filter === 'all' ? 'No connections found.' : 'No pending requests.'}
+                  {filter === 'all' ? 'No connections yet. Discover people to connect with.' : 'No pending requests.'}
                 </Text>
               </View>
             }
           />
         )}
       </Screen>
+
+      <BlockConfirmation
+        visible={!!blockTarget}
+        onClose={() => setBlockTarget(null)}
+        targetId={blockTarget?.id ?? ''}
+        targetName={blockTarget?.name ?? 'User'}
+        onSuccess={() => {
+          setBlockTarget(null);
+          loadData();
+        }}
+      />
+      <ReportModal
+        visible={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        targetType="user"
+        targetId={reportTarget ?? ''}
+      />
     </View>
   );
 }
@@ -202,11 +274,16 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: Spacing.md,
   },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
   cardName: {
     fontFamily: FontFamily.semibold,
     fontSize: FontSize.base,
     color: Colors.dark.DEFAULT,
-    marginBottom: 4,
   },
   cardMeta: {
     flexDirection: 'row',

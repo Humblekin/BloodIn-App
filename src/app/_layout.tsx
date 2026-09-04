@@ -4,12 +4,6 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { Platform } from 'react-native';
-
-let EdgeToEdge: React.ComponentType | null = null;
-if (Platform.OS !== 'web') {
-  EdgeToEdge = require('react-native-edge-to-edge').EdgeToEdge;
-}
 import { useAuthStore } from '../features/auth/stores/authStore';
 
 // Keep the splash screen visible while we fetch resources
@@ -35,9 +29,6 @@ export default function RootLayout() {
   useEffect(() => {
     if (!fontsLoaded || !isInitialized) return;
 
-    // Hide splash screen once fonts and auth are ready
-    SplashScreen.hideAsync();
-
     const inAuthGroup = segments[0] === '(auth)';
 
     if (user && inAuthGroup) {
@@ -47,6 +38,11 @@ export default function RootLayout() {
       // If user is not signed in and trying to access main screens, redirect to auth
       router.replace('/(auth)/welcome');
     }
+
+    // Let the first ready frame mount before removing the native splash.
+    requestAnimationFrame(() => {
+      void SplashScreen.hideAsync();
+    });
   }, [user, fontsLoaded, isInitialized, segments]);
 
   if (!fontsLoaded || !isInitialized) {
@@ -55,7 +51,6 @@ export default function RootLayout() {
 
   return (
     <>
-      {EdgeToEdge && <EdgeToEdge />}
       <StatusBar style="auto" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

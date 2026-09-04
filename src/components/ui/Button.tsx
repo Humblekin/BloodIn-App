@@ -45,7 +45,7 @@ export function Button({
   const isDisabled = disabled || isLoading;
 
   const getContainerStyle = (): StyleProp<ViewStyle> => {
-    const baseStyle = [styles.container, styles[`size_${size}`]];
+    const baseStyle: StyleProp<ViewStyle>[] = [styles.container, styles[`size_${size}`]];
     if (fullWidth) baseStyle.push(styles.fullWidth);
     baseStyle.push(styles[`variant_${variant}`]);
     if (isDisabled) baseStyle.push(styles.disabled);
@@ -53,7 +53,7 @@ export function Button({
   };
 
   const getTextStyle = (): StyleProp<TextStyle> => {
-    const baseStyle = [styles.text, styles[`textSize_${size}`]];
+    const baseStyle: StyleProp<TextStyle>[] = [styles.text, styles[`textSize_${size}`]];
     baseStyle.push(styles[`textVariant_${variant}`]);
     if (isDisabled) baseStyle.push(styles.textDisabled);
     return baseStyle;

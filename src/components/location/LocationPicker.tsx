@@ -18,16 +18,33 @@ export function LocationPicker({ onLocationSelect, currentLocationName }: Locati
   const [isVisible, setIsVisible] = useState(false);
 
   const handleUseCurrentLocation = () => {
-    // In a real app, this would use expo-location
-    console.log('Fetching GPS coordinates...');
-    if (onLocationSelect) {
-      onLocationSelect({
-        latitude: 5.6037, // Mock coordinates (Accra)
-        longitude: -0.1870,
-        name: 'Current Location',
-      });
-    }
-    setIsVisible(false);
+    (async () => {
+      try {
+        // Dynamically import to avoid hard dependency if not installed yet
+        const Location = await import('expo-location');
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          console.warn('Location permission not granted, falling back to mock.');
+          throw new Error('Location permission denied');
+        }
+
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Highest });
+        const { latitude, longitude } = pos.coords;
+
+        if (onLocationSelect) {
+          onLocationSelect({ latitude, longitude, name: 'Current Location' });
+        }
+      } catch (err) {
+        // Fallback to mock coordinates (Accra) when anything fails
+        console.log('Fetching GPS coordinates failed, using mock Accra coordinates.', err);
+        if (onLocationSelect) {
+          onLocationSelect({ latitude: 5.6037, longitude: -0.1870, name: 'Accra (mock)' });
+        }
+      } finally {
+        setIsVisible(false);
+      }
+    })();
   };
 
   const handleMockSelect = (name: string, lat: number, lng: number) => {

@@ -4,15 +4,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Droplet, PlusCircle, Users, Megaphone, MessageCircle, Bell, ChevronRight, MapPin, Clock } from 'lucide-react-native';
+import { Droplet, PlusCircle, MessageCircle, Bell, ChevronRight, MapPin, Clock, Newspaper, Search, Heart, MessageSquare } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
+import { BloodInLogo } from '@/components/ui/Logo';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { requestService, type BloodRequestRow } from '@/features/requests/services/requestService';
+import { postService, type PostRow } from '@/features/posts/services/postService';
+import { POST_PURPOSE_LABEL } from '@/features/posts/constants/posts';
 import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize, LineHeight } from '@/constants/typography';
@@ -32,21 +35,26 @@ export default function HomeScreen() {
   const { profile, user } = useAuthStore();
   const [available, setAvailable] = useState<boolean>(profile?.is_available ?? true);
   const [requests, setRequests] = useState<BloodRequestRow[]>([]);
+  const [recentPosts, setRecentPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadRequests = useCallback(async () => {
     try {
       setError(null);
-      const data = await requestService.getActiveRequests({ limit: 5 });
-      setRequests(data);
+      const [reqs, posts] = await Promise.all([
+        requestService.getActiveRequests({ limit: 5 }),
+        postService.getFeed({ limit: 3, userId: user?.id }),
+      ]);
+      setRequests(reqs);
+      setRecentPosts(posts);
     } catch (err) {
-      console.warn('[Home] Failed to load requests:', err);
-      setError('Could not load the latest requests.');
+      console.warn('[Home] Failed to load data:', err);
+      setError('Could not load the latest data.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -65,20 +73,20 @@ export default function HomeScreen() {
       onPress: () => router.push('/(main)/requests/create'),
     },
     {
-      key: 'communities',
-      label: 'Communities',
-      caption: 'Find your tribe',
-      icon: <Users size={24} color={Colors.white} />,
-      tint: Colors.verification.community,
-      onPress: () => router.push('/(main)/community/create'),
+      key: 'post',
+      label: 'New Post',
+      caption: 'Share with your network',
+      icon: <Newspaper size={24} color={Colors.white} />,
+      tint: Colors.primary.DEFAULT,
+      onPress: () => router.push('/(main)/posts/create'),
     },
     {
-      key: 'campaigns',
-      label: 'Campaigns',
-      caption: 'Organize a drive',
-      icon: <Megaphone size={24} color={Colors.white} />,
-      tint: Colors.verification.organization,
-      onPress: () => router.push('/(main)/campaigns/create'),
+      key: 'discover',
+      label: 'Find People',
+      caption: 'Grow your network',
+      icon: <Search size={24} color={Colors.white} />,
+      tint: Colors.verification.community,
+      onPress: () => router.push('/(main)/(tabs)/discover'),
     },
     {
       key: 'messages',
@@ -102,7 +110,7 @@ export default function HomeScreen() {
             <Avatar
               name={profile?.display_name || user?.email || 'User'}
               url={profile?.avatar_url}
-              size="sm"
+              size="md"
               showBorder
             />
           </TouchableOpacity>
@@ -111,19 +119,37 @@ export default function HomeScreen() {
 
       <Screen scrollable padding keyboardAvoiding={false}>
         {/* Hero greeting */}
-        <View style={styles.hero}>
-          <View>
-            <Text style={styles.eyebrow}>{today}</Text>
-            <Text style={styles.greeting}>Hello, {firstName}</Text>
+        <View style={styles.heroRow}>
+          <View style={styles.heroLeft}>
+            <BloodInLogo size={56} />
+            <View style={styles.heroText}>
+              <Text style={styles.eyebrow}>{today}</Text>
+              <Text style={styles.greeting}>Hello, {firstName}</Text>
+            </View>
           </View>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => router.push('/(main)/notifications')}
-            activeOpacity={0.8}
-          >
-            <Bell size={20} color={Colors.dark.DEFAULT} />
-            <View style={styles.notificationDot} />
-          </TouchableOpacity>
+
+          <View style={styles.heroRight}>
+            <TouchableOpacity
+              style={styles.notificationButton}
+              onPress={() => router.push('/(main)/notifications')}
+              activeOpacity={0.8}
+            >
+              <Bell size={20} color={Colors.dark.DEFAULT} />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+
+            <View style={styles.impactCard}>
+              <View style={styles.impactItem}>
+                <Text style={styles.impactNumber}>{requests.length}</Text>
+                <Text style={styles.impactLabel}>Active requests</Text>
+              </View>
+              <View style={styles.impactDivider} />
+              <View style={styles.impactItem}>
+                <Text style={styles.impactNumber}>{recentPosts.length}</Text>
+                <Text style={styles.impactLabel}>Recent posts</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
         {/* Donor status card */}
@@ -135,7 +161,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.availability}>
               <Text style={styles.availabilityLabel}>
-                {available ? 'Available to donate' : 'Unavailable'}
+                {available ? 'Available to help' : 'Unavailable'}
               </Text>
               <Switch
                 value={available}
@@ -161,17 +187,35 @@ export default function HomeScreen() {
             {quickActions.map((action) => (
               <TouchableOpacity
                 key={action.key}
-                style={styles.quickAction}
+                style={styles.quickActionClean}
                 activeOpacity={0.75}
                 onPress={action.onPress}
               >
-                <View style={[styles.quickIcon, { backgroundColor: action.tint }]}>{action.icon}</View>
-                <Text style={styles.quickLabel}>{action.label}</Text>
-                <Text style={styles.quickCaption} numberOfLines={1}>{action.caption}</Text>
+                <View style={[styles.quickIconClean, { backgroundColor: action.tint }]}>{action.icon}</View>
+                <View style={styles.quickTextWrap}>
+                  <Text style={styles.quickLabel}>{action.label}</Text>
+                  <Text style={styles.quickCaption} numberOfLines={1}>{action.caption}</Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
         </View>
+
+        {/* Latest from your network */}
+        {recentPosts.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Latest from Your Network</Text>
+              <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/feed')} style={styles.seeAll}>
+                <Text style={styles.seeAllText}>See feed</Text>
+                <ChevronRight size={16} color={Colors.primary.DEFAULT} />
+              </TouchableOpacity>
+            </View>
+            {recentPosts.map((post) => (
+              <CompactPostCard key={post.id} post={post} />
+            ))}
+          </View>
+        )}
 
         {/* Active requests */}
         <View style={styles.section}>
@@ -256,6 +300,64 @@ function CompactRequestCard({ request }: { request: BloodRequestRow }) {
   );
 }
 
+function timeAgo(dateStr: string): string {
+  const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function CompactPostCard({ post }: { post: PostRow }) {
+  const router = useRouter();
+  const purposeLabel = POST_PURPOSE_LABEL[post.purpose] || post.purpose;
+
+  return (
+    <TouchableOpacity
+      style={styles.postCard}
+      activeOpacity={0.75}
+      onPress={() => router.push(`/(main)/posts/${post.id}`)}
+    >
+      <Avatar
+        name={post.author?.display_name || 'User'}
+        imageUrl={post.author?.avatar_url || undefined}
+        size="sm"
+      />
+      <View style={styles.postBody}>
+        <View style={styles.postHeader}>
+          <Text style={styles.postAuthor} numberOfLines={1}>
+            {post.author?.display_name || 'Unknown'}
+          </Text>
+          <Text style={styles.postTime}>{timeAgo(post.created_at)}</Text>
+        </View>
+        <Text style={styles.postContent} numberOfLines={2}>
+          {post.content}
+        </Text>
+        <View style={styles.postFooter}>
+          <View style={[styles.postPurposeTag, { backgroundColor: Colors.primary.subtle }]}>
+            <Text style={[styles.postPurposeText, { color: Colors.primary.dark }]}>{purposeLabel}</Text>
+          </View>
+          {post.reaction_count > 0 && (
+            <View style={styles.postStat}>
+              <Heart size={12} color={Colors.dark.tertiary} />
+              <Text style={styles.postStatText}>{post.reaction_count}</Text>
+            </View>
+          )}
+          {post.comment_count > 0 && (
+            <View style={styles.postStat}>
+              <MessageSquare size={12} color={Colors.dark.tertiary} />
+              <Text style={styles.postStatText}>{post.comment_count}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   hero: {
     flexDirection: 'row',
@@ -276,6 +378,61 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     fontSize: FontSize.xl,
     color: Colors.dark.DEFAULT,
+  },
+  heroRow: {
+    alignItems: 'stretch',
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.lg,
+  },
+  heroLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    flex: 1,
+    minWidth: 0,
+  },
+  heroText: {
+    flexDirection: 'column',
+    flex: 1,
+    minWidth: 0,
+  },
+  heroRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginLeft: 0,
+    marginTop: Spacing.md,
+  },
+  impactCard: {
+    flex: 1,
+    marginLeft: Spacing.md,
+    backgroundColor: Colors.surface.DEFAULT,
+    borderRadius: BorderRadius.md,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...Shadows.sm,
+  },
+  impactItem: {
+    alignItems: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  impactNumber: {
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.md,
+    color: Colors.dark.DEFAULT,
+  },
+  impactLabel: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.tertiary,
+  },
+  impactDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: Colors.border.light,
+    marginHorizontal: Spacing.sm,
   },
   notificationButton: {
     width: 40,
@@ -365,20 +522,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     rowGap: Spacing.md,
   },
-  quickAction: {
+  quickActionClean: {
     width: '48%',
     backgroundColor: Colors.surface.DEFAULT,
     borderRadius: BorderRadius.md,
-    padding: Spacing.lg,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
     ...Shadows.sm,
   },
-  quickIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: BorderRadius.md,
+  quickIconClean: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: Spacing.sm,
+  },
+  quickTextWrap: {
+    flex: 1,
   },
   quickLabel: {
     fontFamily: FontFamily.semibold,
@@ -476,5 +639,67 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     color: Colors.dark.tertiary,
     flexShrink: 1,
+  },
+  postCard: {
+    flexDirection: 'row',
+    backgroundColor: Colors.surface.DEFAULT,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+  },
+  postBody: {
+    flex: 1,
+    marginLeft: Spacing.sm,
+  },
+  postHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  postAuthor: {
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.sm,
+    color: Colors.dark.DEFAULT,
+    flex: 1,
+  },
+  postTime: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.tertiary,
+    marginLeft: Spacing.xs,
+  },
+  postContent: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.sm,
+    color: Colors.dark.secondary,
+    lineHeight: 18,
+    marginBottom: Spacing.xs,
+  },
+  postFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  postPurposeTag: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+    borderRadius: BorderRadius.full,
+  },
+  postPurposeText: {
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.xs,
+  },
+  postStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  postStatText: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.tertiary,
   },
 });
