@@ -10,6 +10,7 @@
 // The resulting order feeds the tiered rings: inner ring = most relevant,
 // middle = moderately relevant, outer = the broader local network.
 import { locationService } from '../../location/services/locationService';
+import { demoService } from '../../demo/demoService';
 import type { OrbitNode } from '../components/OrbitCanvas';
 
 export interface NearbyUserResult {
@@ -32,8 +33,21 @@ export const orbitService = {
     radiusKm?: number;
     limit?: number;
   }): Promise<OrbitNode[]> {
-    const users = await locationService.findNearbyUsers(options);
-    const rows = (users || []) as unknown as NearbyUserResult[];
+    let users: any[] = [];
+    try {
+      users = (await locationService.findNearbyUsers(options)) || [];
+    } catch (err) {
+      console.warn('[Orbit] findNearbyUsers failed, using demo nodes:', err);
+      users = [];
+    }
+
+    // Fresh install / no location set → find_nearby_users returns empty.
+    // Fall back to demo nodes so the orbit still feels alive.
+    if (users.length === 0) {
+      return demoService.getOrbitNodes().slice(0, options?.limit ?? demoService.getOrbitNodes().length);
+    }
+
+    const rows = users as unknown as NearbyUserResult[];
 
     // Relevance ordering: connected → available → distance (stable, nearest first).
     const ordered = [...rows].sort((a, b) => {

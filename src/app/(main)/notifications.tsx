@@ -6,11 +6,13 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing, BorderRadius } from '../../constants/spacing';
 import { Droplet, UserPlus, Heart, Bell } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import type { NotificationRow } from '@/features/notifications/services/notificationService';
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const { session } = useAuthStore();
   const { fetchNotifications, markAsRead, loading } = useNotifications();
   
@@ -34,10 +36,35 @@ export default function NotificationsScreen() {
 
   const handlePress = async (item: NotificationRow) => {
     if (!item.is_read) {
-      await markAsRead(item.id);
+      // Demo notifications carry non-UUID ids and are not persisted — mark them
+      // read locally only. Real ones update the database.
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(item.id)) {
+        try {
+          await markAsRead(item.id);
+        } catch (err) {
+          console.warn('[Notifications] markAsRead failed:', err);
+        }
+      }
       setNotifications(prev => prev.map(n => n.id === item.id ? { ...n, is_read: true } : n));
     }
-    // In a real app, we would route based on item.type and item.data
+
+    // Route to the related record based on type + embedded data.
+    const data = item.data || {};
+    if (data.requestId) {
+      router.push(`/(main)/requests/${data.requestId}`);
+    } else if (data.conversationId) {
+      router.push(`/(main)/messages/${data.conversationId}`);
+    } else if (data.communityId) {
+      router.push(`/(main)/community/${data.communityId}`);
+    } else if (data.campaignId) {
+      router.push(`/(main)/campaigns/${data.campaignId}`);
+    } else if (data.postId) {
+      router.push(`/(main)/posts/${data.postId}`);
+    } else if (item.type.includes('connection')) {
+      router.push('/(main)/(tabs)/profile/connections');
+    } else {
+      router.push('/(main)/(tabs)');
+    }
   };
 
   const getIcon = (type: string) => {

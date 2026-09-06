@@ -88,6 +88,19 @@ export function useCommunity() {
     }
   }, []);
 
+  const leaveCommunity = useCallback(async (communityId: string, userId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await communityService.leaveCommunity(communityId, userId);
+    } catch (err: any) {
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const postAnnouncement = useCallback(async (data: {
     community_id: string;
     author_id: string;
@@ -115,6 +128,7 @@ export function useCommunity() {
     fetchMembers,
     fetchAnnouncements,
     joinCommunity,
+    leaveCommunity,
     postAnnouncement,
   };
 }

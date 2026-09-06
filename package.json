@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@hookform/resolvers": "^5.9.1",
+    "@react-three/fiber": "^9.7.0",
     "@shopify/react-native-skia": "2.6.2",
     "@supabase/supabase-js": "^2.112.4",
     "@tanstack/react-query": "^5.102.8",
@@ -13,6 +14,7 @@
     "expo-constants": "~57.0.16",
     "expo-dev-client": "~57.0.18",
     "expo-font": "~57.0.2",
+    "expo-gl": "~57.0.2",
     "expo-image-picker": "~57.0.16",
     "expo-linking": "~57.0.9",
     "expo-location": "~57.0.0",
@@ -34,11 +36,13 @@
     "react-native-svg": "15.15.4",
     "react-native-web": "^0.21.2",
     "react-native-worklets": "0.10.1",
+    "three": "^0.185.1",
     "zod": "^4.5.4",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "@types/three": "^0.185.4",
     "typescript": "~6.0.3"
   },
   "scripts": {

@@ -72,7 +72,13 @@ export default function MessagesListScreen() {
         title="Messages" 
         showBack 
         rightElement={
-          <TouchableOpacity style={{ padding: Spacing.xs }}>
+          <TouchableOpacity
+            style={{ padding: Spacing.xs }}
+            onPress={() => router.push('/(main)/(tabs)/discover')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Start a new conversation"
+          >
             <Edit size={24} color={Colors.primary.DEFAULT} />
           </TouchableOpacity>
         }

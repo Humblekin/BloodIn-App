@@ -2,6 +2,7 @@
 // Encapsulates all Supabase interactions for the blood requests domain.
 
 import { supabase } from '@/lib/supabase/client';
+import { demoService } from '@/features/demo/demoService';
 
 export interface BloodRequestCreate {
   blood_group: string;
@@ -30,6 +31,17 @@ export interface BloodRequestRow {
   expires_at: string;
   created_at: string;
   updated_at: string;
+  // New columns from 20260831000002
+  title: string;
+  description?: string | null;
+  request_type?: string;
+  urgency?: string;
+  facility_name?: string | null;
+  facility_address?: string | null;
+  community_id?: string | null;
+  organization_id?: string | null;
+  safety_acknowledged?: boolean;
+  is_verified?: boolean;
   // Joined
   requester_profile?: { display_name: string; avatar_url: string | null };
 }
@@ -71,12 +83,28 @@ export const requestService = {
       query = query.range(options.offset, options.offset + (options.limit ?? 20) - 1);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []) as BloodRequestRow[];
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await query;
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
+
+    if (error || !data || data.length === 0) {
+      return demoService.getActiveRequests().slice(0, options?.limit ?? demoService.getActiveRequests().length);
+    }
+
+    return data as BloodRequestRow[];
   },
 
   async getRequestById(requestId: string): Promise<BloodRequestRow | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+      return demoService.getRequestById(requestId);
+    }
+
     const { data, error } = await supabase
       .from('blood_requests')
       .select(`
@@ -107,12 +135,21 @@ export const requestService = {
   // ─── Create ───────────────────────────────────────────
 
   async createRequest(userId: string, input: BloodRequestCreate): Promise<BloodRequestRow> {
+    const urgencyMap: Record<number, string> = { 1: 'normal', 2: 'urgent', 3: 'critical' };
+    const title =
+      (input.patient_name ? `${input.patient_name} needs blood` : 'Blood needed') +
+      ` · ${input.blood_group} at ${input.hospital_name}`;
+
     const { data, error } = await supabase
       .from('blood_requests')
       .insert({
         requester_id: userId,
         blood_group: input.blood_group,
         urgency_level: input.urgency_level,
+        urgency: urgencyMap[input.urgency_level] || 'normal',
+        title,
+        description: input.additional_notes || null,
+        facility_name: input.hospital_name,
         hospital_name: input.hospital_name,
         patient_name: input.patient_name || null,
         units_required: input.units_required,
@@ -120,6 +157,7 @@ export const requestService = {
         additional_notes: input.additional_notes || null,
         location_point: `POINT(${input.longitude} ${input.latitude})`,
         expires_at: input.expires_at,
+        safety_acknowledged: true,
       })
       .select()
       .single();
@@ -145,6 +183,10 @@ export const requestService = {
   // ─── Responses ────────────────────────────────────────
 
   async getResponses(requestId: string): Promise<RequestResponseRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
+      return demoService.getResponses(requestId);
+    }
+
     const { data, error } = await supabase
       .from('request_responses')
       .select(`

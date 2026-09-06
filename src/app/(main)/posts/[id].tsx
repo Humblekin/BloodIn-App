@@ -9,6 +9,7 @@ import { PostCard } from '@/features/posts/components/PostCard';
 import { postService, type PostRow, type PostCommentRow } from '@/features/posts/services/postService';
 import { MAX_COMMENT_LENGTH } from '@/features/posts/constants/posts';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { isRealId } from '@/features/demo/demoService';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
@@ -60,7 +61,7 @@ export default function PostDetailScreen() {
         reaction_count: Number(prev.reaction_count ?? 0) + (hadReaction ? -1 : 1),
       };
     });
-    if (post && session?.user.id) {
+    if (post && session?.user.id && isRealId(post.id)) {
       postService.toggleReaction(post.id, session.user.id, 'support').catch((err) => {
         console.warn('[Post] Reaction failed:', err);
       });
@@ -72,8 +73,23 @@ export default function PostDetailScreen() {
     if (!text || !post || !session?.user.id) return;
     setSending(true);
     try {
-      const comment = await postService.addComment(post.id, session.user.id, text);
-      setComments((prev) => [...prev, comment]);
+      if (isRealId(post.id)) {
+        const comment = await postService.addComment(post.id, session.user.id, text);
+        setComments((prev) => [...prev, comment]);
+      } else {
+        // Demo post — simulate a comment locally so the experience feels real.
+        setComments((prev) => [
+          ...prev,
+          {
+            id: `local-${Date.now()}`,
+            post_id: post.id,
+            author_id: session.user.id,
+            content: text,
+            created_at: new Date().toISOString(),
+            author: { display_name: session.user.user_metadata?.display_name || 'You', avatar_url: null },
+          } as PostCommentRow,
+        ]);
+      }
       setPost((prev) =>
         prev ? { ...prev, comment_count: Number(prev.comment_count ?? 0) + 1 } : prev
       );

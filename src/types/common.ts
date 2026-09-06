@@ -2,7 +2,7 @@
 // Shared types used across multiple features.
 
 // ─── Blood Group ──────────────────────────────────────────
-export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'Unknown';
 
 // ─── Account Types ────────────────────────────────────────
 export type AccountType = 'individual' | 'community_admin' | 'organization_admin';
@@ -49,7 +49,7 @@ export type OrganizationVerificationLevel = 'unverified' | 'basic' | 'verified' 
 // ─── Blood Requests ──────────────────────────────────────
 export type RequestType = 'standard' | 'community_assisted' | 'organization_verified' | 'critical';
 export type UrgencyLevel = 'normal' | 'urgent' | 'critical';
-export type RequestStatus = 'active' | 'partially_fulfilled' | 'fulfilled' | 'expired' | 'cancelled';
+export type RequestStatus = 'active' | 'fulfilled' | 'expired' | 'cancelled';
 export type ResponseStatus = 'offered' | 'accepted' | 'declined' | 'completed' | 'cancelled';
 
 // ─── Campaign ─────────────────────────────────────────────

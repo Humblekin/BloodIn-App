@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { postService } from '../services/postService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
+import { isRealId } from '@/features/demo/demoService';
 import type { PostReactionType } from '@/types/common';
 
 export function useFeed() {
@@ -59,6 +60,7 @@ export function useFeed() {
           };
         })
       );
+      if (!isRealId(postId)) return; // demo posts toggle locally only
       await postService.toggleReaction(postId, userId, reaction);
     } catch (err: any) {
       setError(err);

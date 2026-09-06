@@ -1,5 +1,6 @@
 // Project LifeOrbit — Campaign Service
 import { supabase } from '@/lib/supabase/client';
+import { demoService } from '@/features/demo/demoService';
 
 export interface CampaignRow {
   id: string;
@@ -45,12 +46,28 @@ export const campaignService = {
       query = query.in('status', ['upcoming', 'active']);
     }
 
-    const { data, error } = await query;
-    if (error) throw error;
-    return (data || []) as CampaignRow[];
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await query;
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
+
+    if (error || !data || data.length === 0) {
+      return demoService.getCampaigns().slice(0, options?.limit ?? demoService.getCampaigns().length);
+    }
+
+    return data as CampaignRow[];
   },
 
   async getCampaignById(campaignId: string): Promise<CampaignRow | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) {
+      return demoService.getCampaignById(campaignId);
+    }
+
     const { data, error } = await supabase
       .from('campaigns')
       .select('*')
@@ -84,6 +101,10 @@ export const campaignService = {
   },
 
   async getParticipants(campaignId: string): Promise<CampaignParticipantRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) {
+      return demoService.getCampaignParticipants(campaignId);
+    }
+
     const { data, error } = await supabase
       .from('campaign_participants')
       .select(`*, profile:profiles!campaign_participants_user_id_fkey(display_name, avatar_url)`)

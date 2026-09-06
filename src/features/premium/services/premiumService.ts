@@ -1,13 +1,18 @@
 import { supabase } from '@/lib/supabase/client';
 import { paystackService } from './paystackService';
 
+// Price in minor units (GHS pesewas). GHS 20.00 = 2000.
+export const PREMIUM_PRICE_PESEWAS = 2000;
+export const PREMIUM_CURRENCY = 'GHS';
+export const PREMIUM_DISPLAY_PRICE = 'GHS 20.00';
+
 export const premiumService = {
+  // Legacy mock path (no payment) — kept for tests/fallback.
   async upgradeToPremium(): Promise<{ success: boolean; error?: string }> {
     try {
       const { data, error } = await supabase.rpc('upgrade_to_premium');
 
       if (error) {
-        // Helpful guidance when the DB function is not deployed
         if (error.message?.includes('Could not find the function') || error.code === '42883') {
           console.error('[Premium] upgrade_to_premium RPC not found:', error.message);
           return {
@@ -16,7 +21,6 @@ export const premiumService = {
           };
         }
 
-        // Detect missing column errors (e.g. `is_premium` not present)
         if (error.message?.includes('column "is_premium" does not exist') || error.code === '42703') {
           console.error('[Premium] Missing column in DB:', error.message);
           return {
@@ -29,7 +33,6 @@ export const premiumService = {
         return { success: false, error: error.message };
       }
 
-      // continue below
       const result = data as { error?: string; success?: boolean };
       if (result?.error) {
         return { success: false, error: result.error };
@@ -43,14 +46,39 @@ export const premiumService = {
     }
   },
 
-  async startPurchase(amount: number, email: string) {
+  // Real Paystack purchase. userId is embedded in metadata so the webhook
+  // (or paystack-verify) can both record the payment and grant premium.
+  async startPurchase(userId: string, email: string) {
     try {
-      // Initialize transaction via Supabase Edge Function through paystackService
-      const resp = await paystackService.initTransaction({ amount, email, metadata: {} });
-      return { success: true, data: resp };
+      const { reference } = await paystackService.initTransaction({
+        amount: PREMIUM_PRICE_PESEWAS,
+        email,
+        currency: PREMIUM_CURRENCY,
+        callback_url: 'bloodin://payment-result',
+        metadata: {
+          user_id: userId,
+          premium_package: 'standard',
+          source: 'bloodin_app',
+        },
+      });
+      return { success: true, data: { reference, price: PREMIUM_DISPLAY_PRICE } };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to start purchase';
       console.error('[Premium] startPurchase error:', message);
+      return { success: false, error: message };
+    }
+  },
+
+  // Polls Paystack directly to confirm a completed transaction.
+  async confirmPurchase(reference: string) {
+    try {
+      const tx = await paystackService.verifyTransaction(reference);
+      const status: string = tx?.status ?? 'unknown';
+      const failed = status === 'abandoned' || status === 'failed' || status === 'cancelled';
+      return { success: true, status, paid: status === 'success' && !failed, failed };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to verify payment';
+      console.error('[Premium] confirmPurchase error:', message);
       return { success: false, error: message };
     }
   },

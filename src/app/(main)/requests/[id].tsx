@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Image, Alert, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
@@ -9,6 +9,8 @@ import { useAuthStore } from '@/features/auth/stores/authStore';
 import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import { MapPin, Clock, Phone, AlertCircle, MessageCircle } from 'lucide-react-native';
 import type { BloodRequestRow, RequestResponseRow } from '@/features/requests/services/requestService';
+import { requestService } from '@/features/requests/services/requestService';
+import { isRealId } from '@/features/demo/demoService';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams();
@@ -19,6 +21,9 @@ export default function RequestDetailScreen() {
   const [request, setRequest] = useState<BloodRequestRow | null>(null);
   const [responses, setResponses] = useState<RequestResponseRow[]>([]);
   const [isFetching, setIsFetching] = useState(true);
+  const [offerVisible, setOfferVisible] = useState(false);
+  const [offerMessage, setOfferMessage] = useState('');
+  const [sendingOffer, setSendingOffer] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -27,20 +32,16 @@ export default function RequestDetailScreen() {
   const loadData = async () => {
     if (!id || typeof id !== 'string') return;
 
-    // Only fetch real records — mock/preview ids (e.g. "mock-2") are not UUIDs.
+    // Demo ids resolve through the service; only real UUIDs hit Supabase.
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (!isUuid) {
-      setIsFetching(false);
-      return;
-    }
 
     try {
       setIsFetching(true);
-      const req = await fetchRequestById(id);
+      const req = isUuid ? await fetchRequestById(id) : await requestService.getRequestById(id);
       setRequest(req);
-      
+
       if (req) {
-        const resps = await fetchResponses(req.id);
+        const resps = isUuid ? await fetchResponses(req.id) : await requestService.getResponses(req.id);
         setResponses(resps);
       }
     } catch (err) {
@@ -51,28 +52,31 @@ export default function RequestDetailScreen() {
     }
   };
 
-  const handleOfferHelp = async () => {
+  const handleOfferHelp = () => {
     if (!session?.user.id || !request) return;
-    
-    Alert.prompt(
-      'Offer to Help',
-      'Add an optional message to the requester:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Send Offer', 
-          onPress: async (msg?: string) => {
-            try {
-              await offerToHelp(request.id, session.user.id, msg);
-              Alert.alert('Success', 'Your offer has been sent.');
-              loadData(); // refresh
-            } catch (err: any) {
-              Alert.alert('Error', err.message || 'Failed to send offer');
-            }
-          }
-        }
-      ]
-    );
+    if (!isRealId(request.id)) {
+      Alert.alert('Demo request', 'This is a sample request so you can preview the flow. Offer to help works for real requests in the network.');
+      return;
+    }
+    setOfferMessage('');
+    setOfferVisible(true);
+  };
+
+  const sendOffer = async () => {
+    if (!session?.user.id || !request) return;
+
+    setSendingOffer(true);
+    try {
+      await offerToHelp(request.id, session.user.id, offerMessage.trim() || undefined);
+      setOfferVisible(false);
+      setOfferMessage('');
+      Alert.alert('Success', 'Your offer has been sent.');
+      loadData(); // refresh
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to send offer');
+    } finally {
+      setSendingOffer(false);
+    }
   };
 
   const isOwner = session?.user.id === request?.requester_id;
@@ -215,6 +219,52 @@ export default function RequestDetailScreen() {
         )}
 
       </ScrollView>
+
+      <Modal
+        visible={offerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setOfferVisible(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Offer to Help</Text>
+            <Text style={styles.modalSubtitle}>Add an optional message to the requester:</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Message (optional)"
+              placeholderTextColor={colors.text.tertiary}
+              value={offerMessage}
+              onChangeText={setOfferMessage}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={styles.modalActions}>
+              <Pressable
+                style={[styles.modalButton, styles.modalCancel]}
+                onPress={() => setOfferVisible(false)}
+                disabled={sendingOffer}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalButton, styles.modalConfirm, sendingOffer && styles.disabledButton]}
+                onPress={sendOffer}
+                disabled={sendingOffer}
+              >
+                {sendingOffer ? (
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Send Offer</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -466,6 +516,71 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   primaryButtonText: {
+    fontFamily: typography.fonts.semiBold,
+    fontSize: typography.sizes.md,
+    color: colors.text.inverse,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    backgroundColor: colors.background.card,
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitle: {
+    fontFamily: typography.fonts.bold,
+    fontSize: typography.sizes.lg,
+    color: colors.text.primary,
+  },
+  modalSubtitle: {
+    fontFamily: typography.fonts.regular,
+    fontSize: typography.sizes.sm,
+    color: colors.text.secondary,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: 12,
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    fontFamily: typography.fonts.regular,
+    fontSize: typography.sizes.md,
+    color: colors.text.primary,
+    backgroundColor: colors.background.default,
+    marginBottom: 16,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancel: {
+    backgroundColor: colors.background.default,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+  },
+  modalCancelText: {
+    fontFamily: typography.fonts.semiBold,
+    fontSize: typography.sizes.md,
+    color: colors.text.secondary,
+  },
+  modalConfirm: {
+    backgroundColor: colors.primary.default,
+  },
+  modalConfirmText: {
     fontFamily: typography.fonts.semiBold,
     fontSize: typography.sizes.md,
     color: colors.text.inverse,

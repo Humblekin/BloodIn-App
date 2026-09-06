@@ -32,7 +32,7 @@ interface QuickAction {
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { profile, user } = useAuthStore();
+  const { profile, user, updateProfile } = useAuthStore();
   const [available, setAvailable] = useState<boolean>(profile?.is_available ?? true);
   const [requests, setRequests] = useState<BloodRequestRow[]>([]);
   const [recentPosts, setRecentPosts] = useState<PostRow[]>([]);
@@ -101,6 +101,15 @@ export default function HomeScreen() {
   const firstName = profile?.display_name?.split(' ')[0] || 'there';
   const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
+  const handleAvailabilityToggle = async (value: boolean) => {
+    setAvailable(value);
+    const result = await updateProfile({ is_available: value });
+    if (result.error) {
+      // Revert on failure so the UI always mirrors the stored value.
+      setAvailable(profile?.is_available ?? true);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}>
       <Header
@@ -165,7 +174,7 @@ export default function HomeScreen() {
               </Text>
               <Switch
                 value={available}
-                onValueChange={setAvailable}
+                onValueChange={handleAvailabilityToggle}
                 trackColor={{ true: Colors.semantic.success.DEFAULT, false: Colors.border.dark }}
               />
             </View>

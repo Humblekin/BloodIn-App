@@ -4,7 +4,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
-import { HeroArtwork } from '../../components/ui/HeroArtwork';
+import { BloodLinkCharacter3D } from '../../components/ui/BloodLinkCharacter3D';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, LineHeight } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
@@ -18,7 +18,7 @@ export default function WelcomeScreen() {
       <View style={styles.container}>
         <View style={styles.content}>
           <View style={styles.artworkContainer}>
-            <HeroArtwork size={220} />
+            <BloodLinkCharacter3D size={240} />
           </View>
 
           <Text style={styles.appName}>{Branding.appName}</Text>

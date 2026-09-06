@@ -1,5 +1,5 @@
 // Project LifeOrbit — Setup Profile Screen
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Keyboard, Alert, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
@@ -14,6 +14,7 @@ import { SafetyNotice } from '../../components/safety/SafetyNotice';
 import { LocationPicker } from '../../components/location/LocationPicker';
 import { profileSetupSchema, type ProfileSetupFormData } from '../../utils/validation';
 import { useAuthStore } from '../../features/auth/stores/authStore';
+import { locationService } from '../../features/location/services/locationService';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
@@ -22,6 +23,14 @@ import { BLOOD_GROUPS } from '../../constants/bloodGroups';
 export default function SetupProfileScreen() {
   const router = useRouter();
   const { updateProfile, isLoading, user } = useAuthStore();
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    name: string;
+    countryId?: number;
+    regionId?: number;
+    cityId?: number;
+  } | null>(null);
 
   const {
     control,
@@ -53,9 +62,20 @@ export default function SetupProfileScreen() {
     
     if (result.error) {
       Alert.alert('Update Failed', result.error);
-    } else {
-      router.replace('/(main)/(tabs)/home');
+      return;
     }
+
+    if (selectedLocation && user) {
+      try {
+        await locationService.updateUserLocation(user.id, selectedLocation);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Location could not be saved';
+        Alert.alert('Location Update Failed', message);
+        return;
+      }
+    }
+
+    router.replace('/(main)/(tabs)');
   };
 
   return (
@@ -133,10 +153,10 @@ export default function SetupProfileScreen() {
                  name="cityId"
                  render={({ field: { onChange, value } }) => (
                    <LocationPicker
-                     currentLocationName={value ? 'Location Selected' : undefined}
+                     currentLocationName={selectedLocation?.name}
                      onLocationSelect={(loc) => {
-                       // In real app we map loc.name to cityId/regionId
-                       onChange(loc.name);
+                       setSelectedLocation(loc);
+                       onChange(null);
                      }}
                    />
                  )}
@@ -155,7 +175,7 @@ export default function SetupProfileScreen() {
             />
             <Button
               title="Skip for now"
-              onPress={() => router.replace('/(main)/(tabs)/home')}
+              onPress={() => router.replace('/(main)/(tabs)')}
               variant="ghost"
               size="lg"
               fullWidth

@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { typography } from '@/constants/typography';
 import { useCampaigns } from '@/features/campaigns/hooks/useCampaigns';
+import { campaignService } from '@/features/campaigns/services/campaignService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Calendar, MapPin, Users } from 'lucide-react-native';
 import type { CampaignRow, CampaignParticipantRow } from '@/features/campaigns/services/campaignService';
@@ -26,20 +27,16 @@ export default function CampaignDetailScreen() {
   const loadData = async () => {
     if (!id || typeof id !== 'string') return;
 
-    // Only fetch real records — mock/preview ids (e.g. "mock-2") are not UUIDs.
+    // Demo ids resolve through the service; only real UUIDs hit Supabase.
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    if (!isUuid) {
-      setIsFetching(false);
-      return;
-    }
 
     try {
       setIsFetching(true);
-      const camp = await fetchCampaignById(id);
+      const camp = isUuid ? await fetchCampaignById(id) : await campaignService.getCampaignById(id);
       setCampaign(camp);
-      
+
       if (camp) {
-        const parts = await fetchParticipants(camp.id);
+        const parts = isUuid ? await fetchParticipants(camp.id) : await campaignService.getParticipants(camp.id);
         setParticipants(parts);
       }
     } catch (err) {
@@ -52,6 +49,10 @@ export default function CampaignDetailScreen() {
 
   const handleRegister = async () => {
     if (!session?.user.id || !campaign) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaign.id)) {
+      Alert.alert('Demo campaign', 'This is a sample campaign so you can preview the flow. Registration works for real campaigns.');
+      return;
+    }
     try {
       await registerForCampaign(campaign.id, session.user.id);
       Alert.alert('Success', 'You are now registered for this campaign.');

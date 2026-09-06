@@ -1,5 +1,6 @@
 // Project LifeOrbit — Community Service
 import { supabase } from '@/lib/supabase/client';
+import { demoService } from '@/features/demo/demoService';
 
 export interface CommunityRow {
   id: string;
@@ -40,18 +41,33 @@ export interface AnnouncementRow {
 
 export const communityService = {
   async getCommunities(options?: { limit?: number; offset?: number }): Promise<CommunityRow[]> {
-    const { data, error } = await supabase
-      .from('communities')
-      .select('*')
-      .eq('is_active', true)
-      .order('member_count', { ascending: false })
-      .limit(options?.limit ?? 20);
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await supabase
+        .from('communities')
+        .select('*')
+        .eq('is_active', true)
+        .order('member_count', { ascending: false })
+        .limit(options?.limit ?? 20);
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
 
-    if (error) throw error;
-    return (data || []) as CommunityRow[];
+    if (error || !data || data.length === 0) {
+      return demoService.getCommunities().slice(0, options?.limit ?? demoService.getCommunities().length);
+    }
+
+    return data as CommunityRow[];
   },
 
   async getCommunityById(communityId: string): Promise<CommunityRow | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return demoService.getCommunityById(communityId);
+    }
+
     const { data, error } = await supabase
       .from('communities')
       .select('*')
@@ -71,34 +87,54 @@ export const communityService = {
     join_policy?: 'open' | 'request' | 'invite_only';
     created_by: string;
   }): Promise<CommunityRow> {
-    const slug = input.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const baseSlug = input.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    let slug = baseSlug;
 
-    const { data, error } = await supabase
-      .from('communities')
-      .insert({
-        name: input.name,
-        slug,
-        description: input.description || null,
-        join_policy: input.join_policy || 'request',
-        created_by: input.created_by,
-      })
-      .select()
-      .single();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data, error } = await supabase
+        .from('communities')
+        .insert({
+          name: input.name,
+          slug,
+          description: input.description || null,
+          join_policy: input.join_policy || 'request',
+          created_by: input.created_by,
+        })
+        .select()
+        .single();
 
-    if (error) throw error;
+      if (error) {
+        // Slug already taken (e.g. two communities with the same name) -> retry with a suffix.
+        if (error.code === '23505' && attempt < 4) {
+          slug = `${baseSlug}-${attempt + 2}`;
+          continue;
+        }
+        throw error;
+      }
 
-    // Creator becomes admin
-    await supabase.from('community_members').insert({
-      community_id: data.id,
-      user_id: input.created_by,
-      role: 'admin',
-      status: 'active',
-    });
+      // Creator becomes admin
+      const { error: memberError } = await supabase.from('community_members').insert({
+        community_id: data.id,
+        user_id: input.created_by,
+        role: 'admin',
+        status: 'active',
+      });
 
-    return data as CommunityRow;
+      if (memberError) {
+        console.warn('[Community] Failed to add creator as admin:', memberError);
+      }
+
+      return data as CommunityRow;
+    }
+
+    throw new Error('Could not create community. Try a different name.');
   },
 
   async getMembers(communityId: string): Promise<CommunityMemberRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return demoService.getMembers(communityId);
+    }
+
     const { data, error } = await supabase
       .from('community_members')
       .select(`*, profile:profiles!community_members_user_id_fkey(display_name, avatar_url)`)
@@ -114,11 +150,27 @@ export const communityService = {
     const community = await communityService.getCommunityById(communityId);
     const status = community?.join_policy === 'open' ? 'active' : 'pending';
 
+    // Avoid duplicate-key errors when the user is already a member.
+    const { data: existing } = await supabase
+      .from('community_members')
+      .select('id, status')
+      .eq('community_id', communityId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (existing) {
+      if (existing.status === 'active' || existing.status === 'pending') return;
+      throw new Error('You previously left this community.');
+    }
+
     const { error } = await supabase
       .from('community_members')
-      .insert({ community_id: communityId, user_id: userId, status });
+      .insert({ community_id: communityId, user_id: userId, role: 'member', status });
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '23505') return; // concurrent join — already a member
+      throw error;
+    }
   },
 
   async leaveCommunity(communityId: string, userId: string): Promise<void> {
@@ -132,15 +184,38 @@ export const communityService = {
   },
 
   async getAnnouncements(communityId: string): Promise<AnnouncementRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return demoService.getAnnouncements(communityId);
+    }
+
     const { data, error } = await supabase
       .from('community_announcements')
-      .select(`*, author_profile:profiles!community_announcements_author_id_fkey(display_name, avatar_url)`)
+      .select('*')
       .eq('community_id', communityId)
       .order('is_pinned', { ascending: false })
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []) as AnnouncementRow[];
+
+    const announcements = (data || []) as AnnouncementRow[];
+    const authorIds = [...new Set(announcements.map((announcement) => announcement.author_id))];
+    if (authorIds.length === 0) return announcements;
+
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url')
+      .in('id', authorIds);
+
+    if (profilesError) throw profilesError;
+
+    const profilesById = new Map(
+      (profiles || []).map((profile) => [profile.id, profile])
+    );
+
+    return announcements.map((announcement) => ({
+      ...announcement,
+      author_profile: profilesById.get(announcement.author_id),
+    }));
   },
 
   async postAnnouncement(input: {

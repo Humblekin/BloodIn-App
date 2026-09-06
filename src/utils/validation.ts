@@ -4,6 +4,10 @@
 import { z } from 'zod';
 import { BLOOD_GROUPS } from '../constants/bloodGroups';
 
+// Blood groups stored in the DB include "Unknown"; the UI pickers only offer
+// the 8 real groups, so the form schemas accept both.
+const BLOOD_GROUP_ENUM = [...BLOOD_GROUPS, 'Unknown'] as const;
+
 // ─── Auth ─────────────────────────────────────────────────
 export const emailSchema = z
   .string()
@@ -72,7 +76,7 @@ export const profileSetupSchema = z.object({
     .optional()
     .or(z.literal('')),
   bloodGroup: z
-    .enum(BLOOD_GROUPS)
+    .enum(BLOOD_GROUP_ENUM)
     .optional()
     .nullable(),
   countryId: z.number().int().positive().optional().nullable(),
@@ -102,7 +106,7 @@ export type PrivacySettingsFormData = z.infer<typeof privacySettingsSchema>;
 
 // ─── Blood Request ────────────────────────────────────────
 export const bloodRequestSchema = z.object({
-  bloodGroup: z.enum(BLOOD_GROUPS),
+  bloodGroup: z.enum(BLOOD_GROUP_ENUM),
   title: z
     .string()
     .min(5, 'Title must be at least 5 characters')

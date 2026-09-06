@@ -8,6 +8,7 @@
 //   tables, both of which only expose active/verified records via RLS.
 import { supabase } from '@/lib/supabase/client';
 import { locationService } from '@/features/location/services/locationService';
+import { demoService } from '@/features/demo/demoService';
 
 export type DiscoverItemType = 'person' | 'community' | 'organization';
 
@@ -29,16 +30,26 @@ export const discoverService = {
     radiusKm?: number;
     limit?: number;
   }): Promise<DiscoverResult[]> {
-    const users = (await locationService.findNearbyUsers({
-      bloodGroup: options?.bloodGroup,
-      radiusKm: options?.radiusKm,
-      limit: options?.limit ?? 20,
-    })) as any[];
+    let users: any[] = [];
+    try {
+      users = (await locationService.findNearbyUsers({
+        bloodGroup: options?.bloodGroup,
+        radiusKm: options?.radiusKm,
+        limit: options?.limit ?? 20,
+      })) || [];
+    } catch (err) {
+      console.warn('[Discover] findNearbyUsers failed, using demo people:', err);
+      users = [];
+    }
+
+    if (users.length === 0) {
+      return demoService.getDiscover('people');
+    }
 
     return (users || []).map((u) => ({
       id: u.user_id,
       type: 'person' as const,
-      name: u.display_name,
+      name: u.display_name || 'Anonymous',
       subtitle: u.is_connected
         ? 'Connected'
         : [u.city_name, u.region_name].filter(Boolean).join(', ') || 'Nearby',
@@ -51,14 +62,24 @@ export const discoverService = {
   async searchCommunities(options?: {
     limit?: number;
   }): Promise<DiscoverResult[]> {
-    const { data, error } = await supabase
-      .from('communities')
-      .select('id, name, description, member_count, is_verified, logo_url')
-      .eq('is_active', true)
-      .order('member_count', { ascending: false })
-      .limit(options?.limit ?? 20);
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await supabase
+        .from('communities')
+        .select('id, name, description, member_count, is_verified, logo_url')
+        .eq('is_active', true)
+        .order('member_count', { ascending: false })
+        .limit(options?.limit ?? 20);
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
 
-    if (error) throw error;
+    if (error || !data || data.length === 0) {
+      return demoService.getDiscover('communities');
+    }
 
     return (data || []).map((c) => ({
       id: c.id,
@@ -73,14 +94,24 @@ export const discoverService = {
   async searchOrganizations(options?: {
     limit?: number;
   }): Promise<DiscoverResult[]> {
-    const { data, error } = await supabase
-      .from('organizations')
-      .select('id, name, description, org_type, verification_level, logo_url')
-      .eq('is_active', true)
-      .order('name', { ascending: true })
-      .limit(options?.limit ?? 20);
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await supabase
+        .from('organizations')
+        .select('id, name, description, org_type, verification_level, logo_url')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+        .limit(options?.limit ?? 20);
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
 
-    if (error) throw error;
+    if (error || !data || data.length === 0) {
+      return demoService.getDiscover('organizations');
+    }
 
     return (data || []).map((o) => ({
       id: o.id,

@@ -1,9 +1,10 @@
 // Project LifeOrbit — Orbit Screen
 // Radar-style visualization of the user's nearby network (real profiles from
 // find_nearby_users). Tapping a node opens a LinkedIn-style profile sheet.
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import Animated, { useSharedValue, withRepeat, withTiming, Easing, useAnimatedStyle } from 'react-native-reanimated';
 import { Activity } from 'lucide-react-native';
 import { OrbitCanvas, OrbitNode } from '@/features/orbit/components/OrbitCanvas';
@@ -45,8 +46,9 @@ export default function OrbitScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     let active = true;
+    setLoading(true);
     (async () => {
       try {
         setError(null);
@@ -62,7 +64,7 @@ export default function OrbitScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, []));
 
   const statusText = error
     ? error
@@ -79,7 +81,7 @@ export default function OrbitScreen() {
         <View style={styles.hudTopRow}>
           <View style={styles.brandRow}>
             <Activity size={13} color="rgba(255,255,255,0.5)" />
-            <Text style={styles.eyebrow}>LIFEORBIT NETWORK</Text>
+            <Text style={styles.eyebrow}>BLOODIN NETWORK</Text>
           </View>
           <LiveIndicator />
         </View>

@@ -1,182 +1,159 @@
 // Project LifeOrbit — Location Picker Component
+// Lets a user pick their current location (GPS) and enrich it with the
+// seeded country/region/city hierarchy so the location can be stored fully.
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
-import { MapPin, Navigation, X } from 'lucide-react-native';
-import { Button } from '../ui/Button';
+import { Pressable, StyleSheet, Text, View, ActivityIndicator, Alert } from 'react-native';
+import * as Location from 'expo-location';
+import { MapPin } from 'lucide-react-native';
+
+import { Card } from '../ui/Card';
+import { locationService } from '../../features/location/services/locationService';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
-import { BorderRadius, Spacing } from '../../constants/spacing';
-import { Screen } from '../layout/Screen';
-import { Header } from '../layout/Header';
+import { Spacing } from '../../constants/spacing';
 
-export interface LocationPickerProps {
-  onLocationSelect?: (location: { latitude: number; longitude: number; name: string }) => void;
-  currentLocationName?: string;
+export interface PickedLocation {
+  latitude: number;
+  longitude: number;
+  name: string;
+  countryId?: number;
+  regionId?: number;
+  cityId?: number;
 }
 
-export function LocationPicker({ onLocationSelect, currentLocationName }: LocationPickerProps) {
-  const [isVisible, setIsVisible] = useState(false);
+interface LocationPickerProps {
+  currentLocationName?: string;
+  onLocationSelect: (location: PickedLocation) => void;
+}
 
-  const handleUseCurrentLocation = () => {
-    (async () => {
-      try {
-        // Dynamically import to avoid hard dependency if not installed yet
-        const Location = await import('expo-location');
+const ACCRA_FALLBACK = { latitude: 5.6037, longitude: -0.187 };
 
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.warn('Location permission not granted, falling back to mock.');
-          throw new Error('Location permission denied');
-        }
+export function LocationPicker({ currentLocationName, onLocationSelect }: LocationPickerProps) {
+  const [resolving, setResolving] = useState(false);
 
-        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.LocationAccuracy.Highest });
-        const { latitude, longitude } = pos.coords;
+  const resolveAndEmit = async (latitude: number, longitude: number) => {
+    let countryId: number | undefined;
+    let regionId: number | undefined;
+    let cityId: number | undefined;
+    let name = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 
-        if (onLocationSelect) {
-          onLocationSelect({ latitude, longitude, name: 'Current Location' });
-        }
-      } catch (err) {
-        // Fallback to mock coordinates (Accra) when anything fails
-        console.log('Fetching GPS coordinates failed, using mock Accra coordinates.', err);
-        if (onLocationSelect) {
-          onLocationSelect({ latitude: 5.6037, longitude: -0.1870, name: 'Accra (mock)' });
-        }
-      } finally {
-        setIsVisible(false);
+    try {
+      const resolved = await locationService.resolveNearestCity(latitude, longitude);
+      if (resolved) {
+        countryId = resolved.countryId;
+        regionId = resolved.regionId;
+        cityId = resolved.cityId;
+        name = resolved.name;
       }
-    })();
+    } catch (err) {
+      console.warn('[LocationPicker] Nearest-city resolution failed:', err);
+    }
+
+    onLocationSelect({ latitude, longitude, name, countryId, regionId, cityId });
   };
 
-  const handleMockSelect = (name: string, lat: number, lng: number) => {
-    if (onLocationSelect) {
-      onLocationSelect({ latitude: lat, longitude: lng, name });
+  const handleLocate = async () => {
+    if (resolving) return;
+    setResolving(true);
+    try {
+      let latitude = ACCRA_FALLBACK.latitude;
+      let longitude = ACCRA_FALLBACK.longitude;
+      let usedMock = false;
+
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const position = await Location.getCurrentPositionAsync();
+        if (position?.coords) {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+        }
+      } else {
+        usedMock = true;
+      }
+
+      await resolveAndEmit(latitude, longitude);
+
+      if (usedMock) {
+        Alert.alert(
+          'Location permission required',
+          'Using your approximate location instead. Enable location access in settings for precise positioning.'
+        );
+      }
+    } catch (err) {
+      console.warn('[LocationPicker] Location lookup failed:', err);
+      await resolveAndEmit(ACCRA_FALLBACK.latitude, ACCRA_FALLBACK.longitude);
+      Alert.alert(
+        'Using sample location',
+        'We could not access your location, so we used Accra, Ghana as a sample. You can update this later.'
+      );
+    } finally {
+      setResolving(false);
     }
-    setIsVisible(false);
   };
 
   return (
-    <>
-      <TouchableOpacity 
-        style={styles.triggerButton} 
-        onPress={() => setIsVisible(true)}
-        activeOpacity={0.8}
-      >
-        <MapPin size={20} color={Colors.primary.DEFAULT} />
-        <Text style={styles.triggerText}>
-          {currentLocationName || 'Select a location'}
-        </Text>
-      </TouchableOpacity>
-
-      <Modal visible={isVisible} animationType="slide" presentationStyle="pageSheet">
-        <View style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}>
-          <Header 
-            title="Set Location" 
-            rightElement={
-              <TouchableOpacity onPress={() => setIsVisible(false)} style={styles.closeButton}>
-                <X size={24} color={Colors.dark.DEFAULT} />
-              </TouchableOpacity>
-            }
-          />
-          
-          <Screen padding>
-            <View style={styles.mapPlaceholder}>
-              <MapPin size={48} color={Colors.dark.tertiary} />
-              <Text style={styles.placeholderText}>Map integration (react-native-maps) will be added here.</Text>
-            </View>
-            
-            <View style={styles.actions}>
-              <Button
-                title="Use Current Location"
-                leftIcon={<Navigation size={20} color={Colors.white} />}
-                onPress={handleUseCurrentLocation}
-                fullWidth
-                size="lg"
-                style={{ marginBottom: Spacing.lg }}
-              />
-              
-              <Text style={styles.suggestedTitle}>Suggested Locations (Ghana First MVP)</Text>
-              
-              <TouchableOpacity style={styles.suggestedItem} onPress={() => handleMockSelect('Accra, Greater Accra', 5.6037, -0.1870)}>
-                <MapPin size={18} color={Colors.dark.secondary} />
-                <Text style={styles.suggestedText}>Accra, Greater Accra</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.suggestedItem} onPress={() => handleMockSelect('Kumasi, Ashanti', 6.6885, -1.6244)}>
-                <MapPin size={18} color={Colors.dark.secondary} />
-                <Text style={styles.suggestedText}>Kumasi, Ashanti</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity style={styles.suggestedItem} onPress={() => handleMockSelect('Tamale, Northern', 9.4008, -0.8393)}>
-                <MapPin size={18} color={Colors.dark.secondary} />
-                <Text style={styles.suggestedText}>Tamale, Northern</Text>
-              </TouchableOpacity>
-            </View>
-          </Screen>
+    <Pressable
+      onPress={handleLocate}
+      accessibilityRole="button"
+      accessibilityLabel="Use my current location"
+      style={({ pressed }) => [styles.wrapper, pressed && styles.wrapperPressed]}
+    >
+      <Card variant="outlined" padding="md" style={styles.card}>
+        <View style={styles.content}>
+          <View style={styles.iconCircle}>
+            {resolving ? (
+              <ActivityIndicator size="small" color={Colors.primary.DEFAULT} />
+            ) : (
+              <MapPin size={20} color={Colors.primary.DEFAULT} />
+            )}
+          </View>
+          <View style={styles.textSection}>
+            <Text style={styles.title}>{resolving ? 'Finding your location…' : 'Use my current location'}</Text>
+            <Text numberOfLines={2} style={styles.subtitle}>
+              {currentLocationName || 'No location set yet — we will use your nearest city.'}
+            </Text>
+          </View>
         </View>
-      </Modal>
-    </>
+      </Card>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  triggerButton: {
+  wrapper: {
+    borderRadius: 12,
+  },
+  wrapperPressed: {
+    opacity: 0.7,
+  },
+  card: {
+    borderColor: Colors.border.DEFAULT,
+  },
+  content: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.surface.DEFAULT,
-    borderWidth: 1,
-    borderColor: Colors.border.DEFAULT,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-    gap: Spacing.sm,
+    gap: Spacing.md,
   },
-  triggerText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.base,
-    color: Colors.dark.DEFAULT,
-  },
-  closeButton: {
-    padding: Spacing.xs,
-  },
-  mapPlaceholder: {
-    height: 250,
-    backgroundColor: Colors.background.secondary,
-    borderRadius: BorderRadius.lg,
-    justifyContent: 'center',
+  iconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.primary.muted,
     alignItems: 'center',
-    marginBottom: Spacing.xl,
-    padding: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.border.light,
-    borderStyle: 'dashed',
+    justifyContent: 'center',
   },
-  placeholderText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.dark.tertiary,
-    textAlign: 'center',
-    marginTop: Spacing.md,
-  },
-  actions: {
+  textSection: {
     flex: 1,
   },
-  suggestedTitle: {
-    fontFamily: FontFamily.semibold,
-    fontSize: FontSize.md,
-    color: Colors.dark.DEFAULT,
-    marginBottom: Spacing.md,
-  },
-  suggestedItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border.light,
-    gap: Spacing.sm,
-  },
-  suggestedText: {
-    fontFamily: FontFamily.regular,
+  title: {
+    fontFamily: FontFamily.medium,
     fontSize: FontSize.base,
     color: Colors.dark.DEFAULT,
+    marginBottom: Spacing.xs,
+  },
+  subtitle: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.sm,
+    color: Colors.dark.tertiary,
   },
 });

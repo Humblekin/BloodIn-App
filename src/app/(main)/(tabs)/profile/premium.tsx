@@ -6,7 +6,10 @@ import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { PremiumBadge } from '@/features/premium/components/PremiumBadge';
-import { premiumService } from '@/features/premium/services/premiumService';
+import {
+  PREMIUM_DISPLAY_PRICE,
+  premiumService,
+} from '@/features/premium/services/premiumService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
@@ -22,23 +25,59 @@ const BENEFITS = [
 
 export default function PremiumScreen() {
   const router = useRouter();
-  const { profile, updateProfile } = useAuthStore();
+  const { session, profile, fetchProfile } = useAuthStore();
   const [upgrading, setUpgrading] = useState(false);
 
   const isAlreadyPremium = profile?.is_premium === true;
 
-  const handleUpgrade = async () => {
-    setUpgrading(true);
-    try {
-      const result = await premiumService.upgradeToPremium();
-      if (result.error) {
-        Alert.alert('Upgrade Failed', result.error);
+  const waitForPremium = async (reference: string) => {
+    let attempts = 0;
+    while (attempts < 40) {
+      await new Promise((r) => setTimeout(r, 3000));
+      attempts += 1;
+
+      const result = await premiumService.confirmPurchase(reference);
+      if (result.paid) {
+        await fetchProfile();
+        if (useAuthStore.getState().profile?.is_premium) {
+          Alert.alert('Welcome to Premium!', 'Your account has been upgraded.', [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+          return;
+        }
+        continue;
+      }
+      if (result.failed || result.status === 'failed') {
+        Alert.alert(
+          'Payment Not Completed',
+          'The payment was not completed. You can try again whenever you are ready.'
+        );
         return;
       }
-      await updateProfile({ is_premium: true } as any);
-      Alert.alert('Welcome to Premium!', 'Your account has been upgraded.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+    }
+    Alert.alert(
+      'Payment Pending',
+      'BloodIn could not confirm your payment yet. It will activate automatically once Paystack confirms it.'
+    );
+  };
+
+  const handleUpgrade = async () => {
+    if (!session?.user?.email) {
+      Alert.alert('Sign In Required', 'Please sign in before upgrading to Premium.');
+      return;
+    }
+    setUpgrading(true);
+    try {
+      const result = await premiumService.startPurchase(session.user.id, session.user.email);
+      if (result.error || !result.data?.reference) {
+        Alert.alert('Upgrade Failed', result.error || 'Could not start the payment.');
+        return;
+      }
+      Alert.alert(
+        'Complete Your Payment',
+        `Complete the payment of ${PREMIUM_DISPLAY_PRICE} in the browser window that just opened, then return to BloodIn.`
+      );
+      void waitForPremium(result.data.reference);
     } catch (err) {
       Alert.alert('Upgrade Failed', 'An unexpected error occurred. Please try again.');
     } finally {
@@ -86,7 +125,7 @@ export default function PremiumScreen() {
         {!isAlreadyPremium && (
           <View style={styles.cta}>
             <Button
-              title={upgrading ? 'Upgrading…' : 'Upgrade Now'}
+              title={upgrading ? 'Starting…' : `Subscribe for ${PREMIUM_DISPLAY_PRICE}`}
               onPress={handleUpgrade}
               size="lg"
               fullWidth
@@ -95,7 +134,8 @@ export default function PremiumScreen() {
               style={{ backgroundColor: Colors.premium }}
             />
             <Text style={styles.disclaimer}>
-              This is a mock MVP upgrade — no payment is charged. In production this connects to Stripe / RevenueCat.
+              Payment is handled securely by Paystack. You will be redirected to complete the
+              transaction, and Premium activates once the payment is confirmed.
             </Text>
           </View>
         )}

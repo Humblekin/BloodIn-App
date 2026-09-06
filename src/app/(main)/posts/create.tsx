@@ -1,12 +1,14 @@
 // Project LifeOrbit — Create Post Screen
 // Purpose-tagged posts for the BloodIn network feed.
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Header } from '@/components/layout/Header';
 import { Button } from '@/components/ui/Button';
 import { SafetyNotice } from '@/components/safety/SafetyNotice';
 import { postService } from '@/features/posts/services/postService';
+import { communityService } from '@/features/communities/services/communityService';
+import { isRealId } from '@/features/demo/demoService';
 import {
   POST_PURPOSES,
   POST_VISIBILITIES,
@@ -18,17 +20,33 @@ import type { PostPurpose } from '@/types/common';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
+import { Users } from 'lucide-react-native';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
 
 export default function CreatePostScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ communityId?: string }>();
+  const communityParamId = typeof params?.communityId === 'string' ? params.communityId : undefined;
   const { session } = useAuthStore();
   const [purpose, setPurpose] = useState<PostPurpose>('connection');
   const [content, setContent] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'connections' | 'community' | 'private'>('public');
   const [bloodGroup, setBloodGroup] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [targetCommunityName, setTargetCommunityName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!communityParamId) return;
+    setVisibility('community');
+    communityService
+      .getCommunityById(communityParamId)
+      .then((comm) => setTargetCommunityName(comm?.name || null))
+      .catch((err) => {
+        console.warn('[CreatePost] Failed to load community name:', err);
+        setTargetCommunityName(null);
+      });
+  }, [communityParamId]);
 
   const isAssistance = purpose === 'assistance';
 
@@ -39,13 +57,22 @@ export default function CreatePostScreen() {
     }
     if (!session?.user.id) return;
 
+    if (communityParamId && !isRealId(communityParamId)) {
+      Alert.alert(
+        'Demo community',
+        'This is a sample community so you can preview the flow. Posting works for real communities you belong to.'
+      );
+      return;
+    }
+
     setSubmitting(true);
     try {
       const post = await postService.createPost(session.user.id, {
         purpose,
         content: content.trim(),
-        visibility,
+        visibility: communityParamId ? 'community' : visibility,
         blood_group: isAssistance ? bloodGroup : null,
+        community_id: communityParamId || null,
       });
       router.replace(`/(main)/posts/${post.id}`);
     } catch (error: any) {
@@ -57,13 +84,22 @@ export default function CreatePostScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header showBack title="New Post" />
+      <Header showBack title={communityParamId ? 'Post to Community' : 'New Post'} />
       <ScrollView
         style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {targetCommunityName && (
+          <View style={styles.communityBanner}>
+            <Users size={16} color={Colors.primary.dark} />
+            <Text style={styles.communityBannerText}>
+              Posting in <Text style={styles.communityBannerBold}>{targetCommunityName}</Text>
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.label}>What is this about?</Text>
         <View style={styles.purposeGrid}>
           {POST_PURPOSES.map((p) => (
@@ -153,6 +189,27 @@ const styles = StyleSheet.create({
   content: {
     padding: Spacing.lg,
     paddingBottom: Spacing['3xl'],
+  },
+  communityBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    backgroundColor: Colors.primary.subtle,
+    borderWidth: 1,
+    borderColor: Colors.primary.light,
+    borderRadius: 10,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  communityBannerText: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.sm,
+    color: Colors.dark.secondary,
+    flex: 1,
+  },
+  communityBannerBold: {
+    fontFamily: FontFamily.semibold,
+    color: Colors.primary.dark,
   },
   label: {
     fontFamily: FontFamily.semibold,

@@ -1,6 +1,7 @@
 // Project LifeOrbit — Root Layout
 import { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,7 +14,7 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
   
-  const { initialize, isInitialized, user } = useAuthStore();
+  const { initialize, isInitialized, user, completeAuthCallback } = useAuthStore();
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -25,6 +26,23 @@ export default function RootLayout() {
   useEffect(() => {
     initialize();
   }, []);
+
+  useEffect(() => {
+    const handleAuthUrl = (url: string) => {
+      if (!url.includes('/auth/callback')) return;
+
+      void completeAuthCallback(url).then(({ error }) => {
+        if (error) console.warn('[Auth] Email confirmation failed:', error.message);
+      });
+    };
+
+    const subscription = Linking.addEventListener('url', ({ url }) => handleAuthUrl(url));
+    void Linking.getInitialURL().then((url) => {
+      if (url) handleAuthUrl(url);
+    });
+
+    return () => subscription.remove();
+  }, [completeAuthCallback]);
 
   useEffect(() => {
     if (!fontsLoaded || !isInitialized) return;

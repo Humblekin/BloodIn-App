@@ -1,6 +1,7 @@
 // Project LifeOrbit — Post Service
 // Encapsulates all Supabase interactions for the purpose-driven network feed.
 import { supabase } from '@/lib/supabase/client';
+import { demoService } from '@/features/demo/demoService';
 import type { PostPurpose, PostVisibility, PostReactionType } from '@/types/common';
 
 export interface PostRow {
@@ -53,8 +54,11 @@ const POST_SELECT = `
 `;
 
 const normalize = (post: any, userId?: string): PostRow => {
-  const commentCount = Array.isArray(post.comment_count) ? post.comment_count[0]?.count ?? 0 : 0;
-  const reactionCount = Array.isArray(post.reaction_count) ? post.reaction_count[0]?.count ?? 0 : 0;
+  // Supabase returns aggregate counts as `[{ count }]`; demo posts carry plain numbers.
+  const toCount = (value: unknown): number =>
+    Array.isArray(value) ? (value[0]?.count ?? 0) : typeof value === 'number' ? value : 0;
+  const commentCount = toCount(post.comment_count);
+  const reactionCount = toCount(post.reaction_count);
   const myReaction = (post.my_reaction as { reaction: PostReactionType; user_id: string }[] | undefined)
     ?.filter((r) => r.user_id === userId)
     .map(({ reaction }) => ({ reaction })) ?? [];
@@ -91,13 +95,24 @@ export const postService = {
   // ─── Feed ─────────────────────────────────────────────
 
   async getFeed(options?: { limit?: number; offset?: number; userId?: string }): Promise<PostRow[]> {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .order('created_at', { ascending: false })
-      .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 20) - 1);
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await supabase
+        .from('posts')
+        .select(POST_SELECT)
+        .order('created_at', { ascending: false })
+        .range(options?.offset ?? 0, (options?.offset ?? 0) + (options?.limit ?? 20) - 1);
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
 
-    if (error) throw error;
+    if (error || !data || data.length === 0) {
+      const demo = demoService.getFeed().slice(0, options?.limit ?? demoService.getFeed().length);
+      return demo.map((post) => normalize(post, options?.userId));
+    }
 
     const posts = (data || []).map((post) => normalize(post, options?.userId));
 
@@ -117,6 +132,11 @@ export const postService = {
   },
 
   async getPostById(postId: string, userId?: string): Promise<PostRow | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) {
+      const demo = demoService.getPostById(postId);
+      return demo ? normalize(demo, userId) : null;
+    }
+
     const { data, error } = await supabase
       .from('posts')
       .select(POST_SELECT)
@@ -140,6 +160,38 @@ export const postService = {
 
     if (error) throw error;
     return (data || []).map((post) => normalize(post, authorId));
+  },
+
+  // ─── Community feed ────────────────────────────────
+
+  async getCommunityPosts(
+    communityId: string,
+    options?: { limit?: number; userId?: string }
+  ): Promise<PostRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return demoService.getCommunityPosts(communityId).map((post) => normalize(post, options?.userId));
+    }
+
+    let data: any[] | null = null;
+    let error: any = null;
+    try {
+      const res = await supabase
+        .from('posts')
+        .select(POST_SELECT)
+        .eq('community_id', communityId)
+        .order('created_at', { ascending: false })
+        .limit(options?.limit ?? 20);
+      data = res.data;
+      error = res.error;
+    } catch (err) {
+      error = err;
+    }
+
+    if (error || !data || data.length === 0) {
+      return demoService.getCommunityPosts(communityId).map((post) => normalize(post, options?.userId));
+    }
+
+    return (data || []).map((post) => normalize(post, options?.userId));
   },
 
   // ─── Share (within BloodIn) ───────────────────────────
@@ -170,6 +222,10 @@ export const postService = {
   },
 
   async getComments(postId: string): Promise<PostCommentRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) {
+      return demoService.getComments(postId);
+    }
+
     const { data, error } = await supabase
       .from('post_comments')
       .select(`*, author:profiles!post_comments_author_id_fkey(display_name, avatar_url)`)

@@ -12,6 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMessages } from '@/features/messages/hooks/useMessages';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { messageService, MessageRow } from '@/features/messages/services/messageService';
+import { supabase } from '@/lib/supabase/client';
+import { isRealId } from '@/features/demo/demoService';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function ChatRoomScreen() {
   const { id } = useLocalSearchParams();
@@ -23,24 +26,6 @@ export default function ChatRoomScreen() {
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
 
-  useEffect(() => {
-    if (id && typeof id === 'string') {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-      if (isUuid) {
-        loadMessages();
-
-        const sub = messageService.subscribeToConversation(id, (newMsg) => {
-          setMessages(prev => [...prev, newMsg]);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-        });
-
-        return () => {
-          messageService.unsubscribeFromConversation(id);
-        };
-      }
-    }
-  }, [id]);
-
   const loadMessages = async () => {
     if (!id || typeof id !== 'string') return;
     try {
@@ -51,6 +36,42 @@ export default function ChatRoomScreen() {
     }
   };
 
+  useEffect(() => {
+    if (id && typeof id === 'string') {
+      loadMessages();
+      if (isRealId(id)) {
+        const sub: RealtimeChannel = messageService.subscribeToConversation(id, async (newMsg) => {
+          setMessages(prev => {
+            const exists = prev.some(m => m.id === newMsg.id);
+            if (exists) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+          // Realtime payloads do not carry the joined profile; backfill it
+          // so the sender name/avatar render correctly.
+          if (!newMsg.sender_profile && newMsg.sender_id !== session?.user?.id) {
+            try {
+              const profiles = await messageService.getProfiles([newMsg.sender_id]);
+              const profile = profiles.get(newMsg.sender_id);
+              if (profile) {
+                setMessages(prev =>
+                  prev.map(m => m.id === newMsg.id ? { ...m, sender_profile: profile } : m)
+                );
+              }
+            } catch (err) {
+              console.warn('[Chat] Failed to backfill sender profile:', err);
+            }
+          }
+        });
+
+        return () => {
+          supabase.removeChannel(sub);
+        };
+      }
+    }
+  }, [id]);
+
   const handleSend = async () => {
     if (!inputText.trim() || !session?.user.id || typeof id !== 'string') return;
     
@@ -58,8 +79,37 @@ export default function ChatRoomScreen() {
     setInputText(''); // optimistic clear
     
     try {
-      await sendMessage(id, session.user.id, content);
-      // Realtime subscription will push it to the list
+      if (isRealId(id)) {
+        const sent = await sendMessage(id, session.user.id, content);
+        // Realtime pushes it to other clients; ensure it also shows for the sender.
+        setMessages(prev => (prev.some(m => m.id === sent.id) ? prev : [...prev, sent]));
+      } else {
+        // Demo conversation — simulate a real reply so the flow feels complete.
+        const sentMsg: MessageRow = {
+          id: `local-${Date.now()}`,
+          conversation_id: id,
+          sender_id: session.user.id,
+          content,
+          is_system_message: false,
+          created_at: new Date().toISOString(),
+          sender_profile: { display_name: session.user.user_metadata?.display_name || 'You', avatar_url: null },
+        };
+        setMessages(prev => [...prev, sentMsg]);
+        setTimeout(() => {
+          const reply: MessageRow = {
+            id: `local-reply-${Date.now()}`,
+            conversation_id: id,
+            sender_id: 'demo-user-1',
+            content: 'Got it! Thanks for being ready to help — I will reach out with next steps shortly.',
+            is_system_message: false,
+            created_at: new Date().toISOString(),
+            sender_profile: { display_name: 'Ama Mensah', avatar_url: null },
+          };
+          setMessages(prev => [...prev, reply]);
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        }, 900);
+      }
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (err) {
       console.error(err);
       setInputText(content); // revert on error

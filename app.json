@@ -3,7 +3,7 @@
     "name": "BloodIn",
     "slug": "BloodIn",
     "version": "1.0.0",
-    "scheme": "lifeorbit",
+    "scheme": "bloodin",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

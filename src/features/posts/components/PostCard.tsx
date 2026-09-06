@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ReportModal } from '@/features/moderation/components/ReportModal';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { postService, type PostRow } from '../services/postService';
+import { isRealId } from '@/features/demo/demoService';
 import { POST_PURPOSE_LABEL } from '../constants/posts';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
@@ -90,6 +91,10 @@ export function PostCard({ post, onOpen, onToggleReaction, style }: PostCardProp
 
   const handleShare = () => {
     if (!session?.user.id) return;
+    if (!isRealId(post.id)) {
+      Alert.alert('Demo post', 'This is a sample post. Sharing works for real posts in the network.');
+      return;
+    }
     Alert.alert('Repost to your network', 'This shares the post with your network. Continue?', [
       { text: 'Cancel', style: 'cancel' },
       {

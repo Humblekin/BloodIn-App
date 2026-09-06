@@ -1,5 +1,6 @@
 // Project LifeOrbit — Message Service
 import { supabase } from '@/lib/supabase/client';
+import { demoService, isRealId } from '@/features/demo/demoService';
 
 export interface ConversationRow {
   id: string;
@@ -7,7 +8,7 @@ export interface ConversationRow {
   created_at: string;
   last_message_at: string;
   // Joined
-  participants?: { user_id: string; profile: { display_name: string; avatar_url: string | null } }[];
+  participants?: { user_id: string; profile?: { display_name: string; avatar_url: string | null } }[];
   last_message?: { content: string; sender_id: string; created_at: string };
 }
 
@@ -25,6 +26,10 @@ export const messageService = {
   // ─── Conversations ────────────────────────────────────
 
   async getConversations(userId: string): Promise<ConversationRow[]> {
+    if (!isRealId(userId)) {
+      return demoService.getConversations();
+    }
+
     // Step 1: Get conversation IDs the user participates in
     const { data: participations, error: partError } = await supabase
       .from('conversation_participants')
@@ -32,7 +37,9 @@ export const messageService = {
       .eq('user_id', userId);
 
     if (partError) throw partError;
-    if (!participations || participations.length === 0) return [];
+    if (!participations || participations.length === 0) {
+      return demoService.getConversations();
+    }
 
     const conversationIds = participations.map(p => p.conversation_id);
 
@@ -44,46 +51,78 @@ export const messageService = {
       .order('last_message_at', { ascending: false });
 
     if (error) throw error;
-    return (data || []) as ConversationRow[];
+    const conversations = (data || []) as ConversationRow[];
+
+    // Step 3: Attach participants + their profiles for every conversation
+    const [{ data: members, error: membersError }, { data: profiles, error: profilesError }] =
+      await Promise.all([
+        supabase
+          .from('conversation_participants')
+          .select('conversation_id, user_id')
+          .in('conversation_id', conversationIds),
+        supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url'),
+      ]);
+
+    if (membersError) throw membersError;
+    if (profilesError) throw profilesError;
+
+    const profilesById = new Map(
+      (profiles || []).map((profile) => [profile.id, profile as { display_name: string; avatar_url: string | null }])
+    );
+
+    const membersByConversation = (members || []).reduce<Record<string, { user_id: string }[]>>((acc, member) => {
+      const list = acc[member.conversation_id] || (acc[member.conversation_id] = []);
+      list.push({ user_id: member.user_id });
+      return acc;
+    }, {});
+
+    // Step 4: Attach the most recent message for each conversation
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('id, conversation_id, sender_id, content, created_at')
+      .in('conversation_id', conversationIds)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (messagesError) throw messagesError;
+
+    const lastMessageByConversation = new Map<string, { content: string; sender_id: string; created_at: string }>();
+    for (const message of (messages || []) as { conversation_id: string; content: string; sender_id: string; created_at: string }[]) {
+      if (!lastMessageByConversation.has(message.conversation_id)) {
+        lastMessageByConversation.set(message.conversation_id, {
+          content: message.content,
+          sender_id: message.sender_id,
+          created_at: message.created_at,
+        });
+      }
+    }
+
+    return conversations.map((conversation) => ({
+      ...conversation,
+      participants: (membersByConversation[conversation.id] || []).map((member) => ({
+        user_id: member.user_id,
+        profile: profilesById.get(member.user_id),
+      })),
+      last_message: lastMessageByConversation.get(conversation.id),
+    }));
   },
 
   async getOrCreateDirectConversation(userA: string, userB: string): Promise<string> {
-    // Check if a direct conversation already exists between these two users
-    const { data: existingA } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userA);
+    // SECURITY DEFINER RPC: safely creates the conversation + both participant
+    // rows even though the participants INSERT policy only allows one's own row.
+    const { data, error } = await supabase.rpc('create_direct_conversation', {
+      user_a: userA,
+      user_b: userB,
+    });
 
-    const { data: existingB } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userB);
-
-    if (existingA && existingB) {
-      const aIds = new Set(existingA.map(r => r.conversation_id));
-      const shared = existingB.find(r => aIds.has(r.conversation_id));
-      if (shared) return shared.conversation_id;
+    if (error) {
+      console.warn('[Messaging] create_direct_conversation RPC failed:', error);
+      throw error;
     }
 
-    // Create new conversation
-    const { data: conv, error: convError } = await supabase
-      .from('conversations')
-      .insert({ type: 'direct' })
-      .select()
-      .single();
-
-    if (convError) throw convError;
-
-    // Add both participants
-    const { error: partError } = await supabase
-      .from('conversation_participants')
-      .insert([
-        { conversation_id: conv.id, user_id: userA },
-        { conversation_id: conv.id, user_id: userB },
-      ]);
-
-    if (partError) throw partError;
-    return conv.id;
+    return data as string;
   },
 
   // ─── Messages ─────────────────────────────────────────
@@ -92,6 +131,10 @@ export const messageService = {
     conversationId: string,
     options?: { limit?: number; before?: string }
   ): Promise<MessageRow[]> {
+    if (!isRealId(conversationId)) {
+      return demoService.getMessages(conversationId);
+    }
+
     let query = supabase
       .from('messages')
       .select(`
@@ -160,9 +203,18 @@ export const messageService = {
       .subscribe();
   },
 
-  unsubscribeFromConversation(conversationId: string) {
-    supabase.removeChannel(
-      supabase.channel(`messages:${conversationId}`)
+  async getProfiles(userIds: string[]): Promise<Map<string, { display_name: string; avatar_url: string | null }>> {
+    if (userIds.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url')
+      .in('id', userIds);
+    if (error) throw error;
+    return new Map(
+      (data || []).map((profile) => [
+        profile.id,
+        { display_name: profile.display_name, avatar_url: profile.avatar_url },
+      ])
     );
   },
 };

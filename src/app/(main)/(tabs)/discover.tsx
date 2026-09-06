@@ -70,7 +70,7 @@ export default function DiscoverScreen() {
   }, [loadResults]);
 
   const filteredResults = searchQuery.trim()
-    ? results.filter((r) => r.name.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    ? results.filter((r) => (r.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
     : results;
 
   const renderFilterPill = (option: FilterOption) => (

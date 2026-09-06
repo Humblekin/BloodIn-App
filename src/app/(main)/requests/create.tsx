@@ -53,7 +53,7 @@ export default function CreateRequestScreen() {
       });
 
       Alert.alert('Success', 'Blood request created successfully.', [
-        { text: 'OK', onPress: () => router.push(`/requests/${newRequest.id}`) }
+        { text: 'OK', onPress: () => router.push(`/(main)/requests/${newRequest.id}`) }
       ]);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to create request');

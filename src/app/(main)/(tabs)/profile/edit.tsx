@@ -12,9 +12,11 @@ import { Header } from '@/components/layout/Header';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
+import { LocationPicker } from '@/components/location/LocationPicker';
 import { profileSetupSchema, type ProfileSetupFormData } from '@/utils/validation';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { profileService } from '@/features/profiles/services/profileService';
+import { locationService } from '@/features/location/services/locationService';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
@@ -25,6 +27,14 @@ export default function EditProfileScreen() {
   const { user, profile, updateProfile, fetchProfile, isLoading } = useAuthStore();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+    name: string;
+    countryId?: number;
+    regionId?: number;
+    cityId?: number;
+  } | null>(null);
 
   const {
     control,
@@ -98,9 +108,20 @@ export default function EditProfileScreen() {
 
     if (result.error) {
       Alert.alert('Update Failed', result.error);
-    } else {
-      router.back();
+      return;
     }
+
+    if (selectedLocation && user) {
+      try {
+        await locationService.updateUserLocation(user.id, selectedLocation);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Location could not be saved';
+        Alert.alert('Location Update Failed', message);
+        return;
+      }
+    }
+
+    router.back();
   };
 
   return (
@@ -177,6 +198,14 @@ export default function EditProfileScreen() {
               </View>
             </View>
 
+            <View style={styles.locationSection}>
+              <Text style={styles.sectionLabel}>Location</Text>
+              <LocationPicker
+                currentLocationName={selectedLocation?.name}
+                onLocationSelect={setSelectedLocation}
+              />
+            </View>
+
             <View style={styles.footer}>
               <Button
                 title="Save Changes"
@@ -222,6 +251,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
   },
   bloodGroupSection: {
+    marginTop: Spacing.xs,
+  },
+  locationSection: {
     marginTop: Spacing.xs,
   },
   bloodGrid: {

@@ -34,7 +34,9 @@ export function Header({
     } else if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/');
+      // No back stack entry (e.g. this screen is the first in its stack) —
+      // head to the home tab instead of an unmatched "/" root route.
+      router.replace('/(main)/(tabs)');
     }
   };
 

@@ -37,6 +37,8 @@ import type {
 } from './common';
 
 // ─── Profiles ─────────────────────────────────────────────
+export type UserType = 'individual' | 'organization' | 'hospital' | 'blood_bank';
+
 export interface ProfileRow {
   id: string;
   display_name: string;
@@ -44,10 +46,17 @@ export interface ProfileRow {
   avatar_url: string | null;
   blood_group: BloodGroup | null;
   account_type: AccountType;
+  user_type: UserType;
   is_available: boolean;
   is_premium: boolean;
+  is_verified: boolean;
+  verification_level: number;
   human_verified: boolean;
   identity_verified: boolean;
+  country_id: string | null;
+  region_id: string | null;
+  city_id: string | null;
+  location_point: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -142,9 +151,11 @@ export interface ConnectionRequestRow {
 
 export interface ConnectionRow {
   id: string;
-  user_a_id: string;
-  user_b_id: string;
-  connected_at: string;
+  requester_id: string;
+  recipient_id: string;
+  status: ConnectionStatus;
+  created_at: string;
+  updated_at: string;
 }
 
 // ─── Communities ──────────────────────────────────────────
@@ -246,12 +257,18 @@ export interface MessageRow {
 export interface BloodRequestRow {
   id: string;
   requester_id: string;
+  patient_name: string | null;
   blood_group: BloodGroup;
+  units_required: number;
+  urgency_level: number;
+  hospital_name: string;
+  location_point: string | null;
+  contact_number: string | null;
+  additional_notes: string | null;
   request_type: RequestType;
   urgency: UrgencyLevel;
   title: string;
   description: string | null;
-  units_needed: number;
   facility_name: string | null;
   facility_address: string | null;
   country_id: number | null;

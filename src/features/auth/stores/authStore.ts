@@ -3,8 +3,11 @@
 
 import { create } from 'zustand';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
+import { createURL } from 'expo-linking';
 import { supabase } from '@/lib/supabase/client';
 import type { ProfileRow, PrivacySettingsRow } from '@/types/database';
+
+const authRedirectUrl = createURL('auth/callback', { scheme: 'bloodin' });
 
 // ─── State Shape ──────────────────────────────────────────
 interface AuthState {
@@ -25,6 +28,7 @@ interface AuthState {
   // Actions
   initialize: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error: AuthError | null }>;
+  completeAuthCallback: (url: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
@@ -105,6 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           data: {
             display_name: displayName,
           },
+          emailRedirectTo: authRedirectUrl,
         },
       });
 
@@ -113,8 +118,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return { error };
       }
 
-      // If email confirmation is required, user will be null until confirmed
-      if (data.user) {
+      if (data.session) {
         set({ user: data.user, session: data.session });
       }
 
@@ -123,6 +127,37 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Sign up failed';
       set({ isLoading: false, error: message });
+      return { error: { message } as AuthError };
+    }
+  },
+
+  // ─── Email Confirmation Callback ─────────────────────
+  completeAuthCallback: async (url) => {
+    try {
+      const [urlWithoutHash, hash = ''] = url.split('#', 2);
+      const query = new URLSearchParams(urlWithoutHash.split('?')[1] ?? '');
+
+      if (query.get('code')) {
+        const { error } = await supabase.auth.exchangeCodeForSession(query.get('code')!);
+        return { error };
+      }
+
+      const hashParams = new URLSearchParams(hash);
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
+
+      if (!accessToken || !refreshToken) {
+        return { error: { message: 'The email confirmation link is invalid or expired.' } as AuthError };
+      }
+
+      const { error } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+
+      return { error };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Email confirmation failed';
       return { error: { message } as AuthError };
     }
   },
