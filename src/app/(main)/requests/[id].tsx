@@ -10,7 +10,7 @@ import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import { MapPin, Clock, Phone, AlertCircle, MessageCircle } from 'lucide-react-native';
 import type { BloodRequestRow, RequestResponseRow } from '@/features/requests/services/requestService';
 import { requestService } from '@/features/requests/services/requestService';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams();

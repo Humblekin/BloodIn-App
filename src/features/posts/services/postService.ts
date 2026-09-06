@@ -1,7 +1,7 @@
 // Project LifeOrbit — Post Service
 // Encapsulates all Supabase interactions for the purpose-driven network feed.
 import { supabase } from '@/lib/supabase/client';
-import { demoService } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import type { PostPurpose, PostVisibility, PostReactionType } from '@/types/common';
 
 export interface PostRow {
@@ -74,22 +74,47 @@ export const postService = {
   // ─── Create ───────────────────────────────────────────
 
   async createPost(authorId: string, input: PostCreate): Promise<PostRow> {
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        author_id: authorId,
-        purpose: input.purpose,
-        content: input.content,
-        visibility: input.visibility || 'public',
-        blood_group: input.blood_group || null,
-        community_id: input.community_id || null,
-        shared_from_post_id: input.shared_from_post_id || null,
-      })
-      .select(POST_SELECT)
-      .single();
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData.user || authData.user.id !== authorId) {
+      throw new Error('Your session has expired. Please sign in again.');
+    }
+
+    const { data: postId, error } = await supabase.rpc('create_post', {
+      p_purpose: input.purpose,
+      p_content: input.content,
+      p_visibility: input.visibility || 'public',
+      p_blood_group: input.blood_group || null,
+      p_community_id: input.community_id || null,
+      p_shared_from_post_id: input.shared_from_post_id || null,
+    });
 
     if (error) throw error;
+
+    const { data, error: fetchError } = await supabase
+      .from('posts')
+      .select(POST_SELECT)
+      .eq('id', postId)
+      .single();
+
+    if (fetchError) throw fetchError;
     return normalize(data, authorId);
+  },
+
+  // ─── Delete ───────────────────────────────────────────
+
+  async deletePost(postId: string, userId: string): Promise<boolean> {
+    if (!isRealId(postId)) {
+      throw new Error('Demo posts cannot be deleted.');
+    }
+    // Scoped to author_id so an authenticated user can never delete a post
+    // they don't own, even if RLS were somehow bypassed client-side.
+    const { count, error } = await supabase
+      .from('posts')
+      .delete({ count: 'exact' })
+      .eq('id', postId)
+      .eq('author_id', userId);
+    if (error) throw error;
+    return (count ?? 0) > 0;
   },
 
   // ─── Feed ─────────────────────────────────────────────
@@ -110,8 +135,8 @@ export const postService = {
     }
 
     if (error || !data || data.length === 0) {
-      const demo = demoService.getFeed().slice(0, options?.limit ?? demoService.getFeed().length);
-      return demo.map((post) => normalize(post, options?.userId));
+      if (error) throw error;
+      return [];
     }
 
     const posts = (data || []).map((post) => normalize(post, options?.userId));
@@ -133,8 +158,7 @@ export const postService = {
 
   async getPostById(postId: string, userId?: string): Promise<PostRow | null> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) {
-      const demo = demoService.getPostById(postId);
-      return demo ? normalize(demo, userId) : null;
+      return null;
     }
 
     const { data, error } = await supabase
@@ -169,7 +193,7 @@ export const postService = {
     options?: { limit?: number; userId?: string }
   ): Promise<PostRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
-      return demoService.getCommunityPosts(communityId).map((post) => normalize(post, options?.userId));
+      return [];
     }
 
     let data: any[] | null = null;
@@ -187,9 +211,8 @@ export const postService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getCommunityPosts(communityId).map((post) => normalize(post, options?.userId));
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return (data || []).map((post) => normalize(post, options?.userId));
   },
@@ -223,7 +246,7 @@ export const postService = {
 
   async getComments(postId: string): Promise<PostCommentRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(postId)) {
-      return demoService.getComments(postId);
+      return [];
     }
 
     const { data, error } = await supabase

@@ -2,7 +2,7 @@
 import { useState, useCallback } from 'react';
 import { postService } from '../services/postService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import type { PostReactionType } from '@/types/common';
 
 export function useFeed() {

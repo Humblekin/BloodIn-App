@@ -1,6 +1,5 @@
 // Project LifeOrbit — Notification Service
 import { supabase } from '@/lib/supabase/client';
-import { demoService } from '@/features/demo/demoService';
 
 export interface NotificationRow {
   id: string;
@@ -33,10 +32,6 @@ export const notificationService = {
     if (error) throw error;
 
     const rows = (data || []) as NotificationRow[];
-    // Keep the inbox alive on fresh installs / empty quiet periods.
-    if (rows.length === 0) {
-      return demoService.getNotifications().slice(0, options?.limit ?? 50);
-    }
     return rows;
   },
 

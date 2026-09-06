@@ -1,6 +1,5 @@
 // Project LifeOrbit — Community Service
 import { supabase } from '@/lib/supabase/client';
-import { demoService } from '@/features/demo/demoService';
 
 export interface CommunityRow {
   id: string;
@@ -56,16 +55,15 @@ export const communityService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getCommunities().slice(0, options?.limit ?? demoService.getCommunities().length);
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return data as CommunityRow[];
   },
 
   async getCommunityById(communityId: string): Promise<CommunityRow | null> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
-      return demoService.getCommunityById(communityId);
+      return null;
     }
 
     const { data, error } = await supabase
@@ -132,7 +130,7 @@ export const communityService = {
 
   async getMembers(communityId: string): Promise<CommunityMemberRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
-      return demoService.getMembers(communityId);
+      return [];
     }
 
     const { data, error } = await supabase
@@ -185,7 +183,7 @@ export const communityService = {
 
   async getAnnouncements(communityId: string): Promise<AnnouncementRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
-      return demoService.getAnnouncements(communityId);
+      return [];
     }
 
     const { data, error } = await supabase

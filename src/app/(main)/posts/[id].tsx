@@ -2,20 +2,21 @@
 // Single post view with comments. Visibility is enforced by RLS on posts.
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
 import { PostCard } from '@/features/posts/components/PostCard';
 import { postService, type PostRow, type PostCommentRow } from '@/features/posts/services/postService';
 import { MAX_COMMENT_LENGTH } from '@/features/posts/constants/posts';
 import { useAuthStore } from '@/features/auth/stores/authStore';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const { session } = useAuthStore();
   const [post, setPost] = useState<PostRow | null>(null);
   const [comments, setComments] = useState<PostCommentRow[]>([]);
@@ -23,6 +24,11 @@ export default function PostDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const currentUserId = session?.user?.id;
+  // Only the author (of a real post) can delete it.
+  const isOwnPost = !!post && isRealId(post.id) && !!currentUserId && post.author_id === currentUserId;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -101,6 +107,36 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleDeletePost = () => {
+    if (!post || !currentUserId) return;
+    Alert.alert(
+      'Delete Post?',
+      'This will permanently remove your post and its comments. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const ok = await postService.deletePost(post.id, currentUserId);
+              if (!ok) {
+                Alert.alert('Post not found', 'This post may have already been removed.');
+                return;
+              }
+              router.canGoBack() ? router.back() : router.replace('/(main)/(tabs)');
+            } catch (err: any) {
+              Alert.alert('Error', err?.message || 'Could not delete the post.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <Header showBack title="Post" />
@@ -122,6 +158,17 @@ export default function PostDetailScreen() {
             showsVerticalScrollIndicator={false}
           >
             <PostCard post={post} onToggleReaction={handleToggleReaction} />
+
+            {isOwnPost && (
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDeletePost}
+                disabled={deleting}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.deleteButtonText}>{deleting ? 'Deleting...' : 'Delete Post'}</Text>
+              </TouchableOpacity>
+            )}
 
             <Text style={styles.commentsTitle}>
               {comments.length === 0 ? 'No comments yet' : `${comments.length} comment${comments.length === 1 ? '' : 's'}`}
@@ -186,6 +233,21 @@ const styles = StyleSheet.create({
     color: Colors.dark.DEFAULT,
     marginTop: Spacing.xl,
     marginBottom: Spacing.md,
+  },
+  deleteButton: {
+    marginTop: Spacing['2xl'],
+    alignSelf: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.semantic.critical.DEFAULT,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    backgroundColor: 'transparent',
+  },
+  deleteButtonText: {
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.sm,
+    color: Colors.semantic.critical.text,
   },
   comment: {
     flexDirection: 'row',

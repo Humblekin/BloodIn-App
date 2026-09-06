@@ -2,7 +2,6 @@
 // Encapsulates all Supabase interactions for the blood requests domain.
 
 import { supabase } from '@/lib/supabase/client';
-import { demoService } from '@/features/demo/demoService';
 
 export interface BloodRequestCreate {
   blood_group: string;
@@ -93,16 +92,15 @@ export const requestService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getActiveRequests().slice(0, options?.limit ?? demoService.getActiveRequests().length);
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return data as BloodRequestRow[];
   },
 
   async getRequestById(requestId: string): Promise<BloodRequestRow | null> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
-      return demoService.getRequestById(requestId);
+      return null;
     }
 
     const { data, error } = await supabase
@@ -184,7 +182,7 @@ export const requestService = {
 
   async getResponses(requestId: string): Promise<RequestResponseRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestId)) {
-      return demoService.getResponses(requestId);
+      return [];
     }
 
     const { data, error } = await supabase

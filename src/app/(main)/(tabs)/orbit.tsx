@@ -56,7 +56,12 @@ export default function OrbitScreen() {
         if (active) setNodes(nearby);
       } catch (err) {
         console.warn('[Orbit] Failed to load network:', err);
-        if (active) setError('Could not load your network right now.');
+        if (active) {
+          setNodes([]);
+          setError(err instanceof Error && err.message === 'LOCATION_REQUIRED'
+            ? 'Set your location in Edit Profile to find nearby members.'
+            : 'Could not load your network right now.');
+        }
       } finally {
         if (active) setLoading(false);
       }

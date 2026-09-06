@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/Badge';
 import { ReportModal } from '@/features/moderation/components/ReportModal';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { postService, type PostRow } from '../services/postService';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import { POST_PURPOSE_LABEL } from '../constants/posts';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';

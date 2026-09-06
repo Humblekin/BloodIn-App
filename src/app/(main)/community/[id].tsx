@@ -16,7 +16,7 @@ import { PostCard } from '@/features/posts/components/PostCard';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import type { CommunityRow, AnnouncementRow, CommunityMemberRow } from '@/features/communities/services/communityService';
 import { AnnouncementCard } from '@/features/communities/components/AnnouncementCard';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import type { PostReactionType } from '@/types/common';
 
 export default function CommunityProfileScreen() {

@@ -110,32 +110,14 @@ export const locationService = {
         throw new Error('Invalid longitude');
       }
 
-    const update: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (location.countryId !== undefined) {
-      update.home_country_id = location.countryId;
-      update.current_country_id = location.countryId;
-    }
-    if (location.regionId !== undefined) {
-      update.home_region_id = location.regionId;
-      update.current_region_id = location.regionId;
-    }
-    if (location.cityId !== undefined) {
-      update.home_city_id = location.cityId;
-      update.current_city_id = location.cityId;
-    }
-
-    if (typeof location.latitude === 'number' && typeof location.longitude === 'number') {
-      update.home_coordinates = `POINT(${location.longitude} ${location.latitude})`;
-      update.current_coordinates = `POINT(${location.longitude} ${location.latitude})`;
-      update.coordinates_updated_at = new Date().toISOString();
-    }
-
     const { error } = await supabase
-      .from('user_locations')
-      .upsert({ user_id: userId, ...update }, { onConflict: 'user_id' });
+      .rpc('set_user_location', {
+        p_country_id: location.countryId ?? null,
+        p_region_id: location.regionId ?? null,
+        p_city_id: location.cityId ?? null,
+        p_latitude: location.latitude ?? null,
+        p_longitude: location.longitude ?? null,
+      });
 
     if (error) throw error;
   },
@@ -157,6 +139,17 @@ export const locationService = {
       throw error;
     }
     return data;
+  },
+
+  async hasCurrentLocation(userId: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('user_locations')
+      .select('current_coordinates')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return Boolean(data?.current_coordinates);
   },
 
   // ─── Discovery ────────────────────────────────────────

@@ -41,8 +41,7 @@ export function OrbitProfileModal({ node, onClose }: OrbitProfileModalProps) {
 
   if (!node) return null;
 
-  // Demo/mock nodes carry non-UUID ids (e.g. "mock-2"). Only real profile
-  // records with UUID ids can be messaged/connected to in the database.
+  // Only persisted profile records with UUID ids can be messaged or connected to.
   const isDemoNode = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(node.id);
 
   const isUser = node.type === 'user';

@@ -1,6 +1,5 @@
 // Project LifeOrbit — Campaign Service
 import { supabase } from '@/lib/supabase/client';
-import { demoService } from '@/features/demo/demoService';
 
 export interface CampaignRow {
   id: string;
@@ -56,16 +55,15 @@ export const campaignService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getCampaigns().slice(0, options?.limit ?? demoService.getCampaigns().length);
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return data as CampaignRow[];
   },
 
   async getCampaignById(campaignId: string): Promise<CampaignRow | null> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) {
-      return demoService.getCampaignById(campaignId);
+      return null;
     }
 
     const { data, error } = await supabase
@@ -102,7 +100,7 @@ export const campaignService = {
 
   async getParticipants(campaignId: string): Promise<CampaignParticipantRow[]> {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(campaignId)) {
-      return demoService.getCampaignParticipants(campaignId);
+      return [];
     }
 
     const { data, error } = await supabase

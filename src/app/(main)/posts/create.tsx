@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { SafetyNotice } from '@/components/safety/SafetyNotice';
 import { postService } from '@/features/posts/services/postService';
 import { communityService } from '@/features/communities/services/communityService';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import {
   POST_PURPOSES,
   POST_VISIBILITIES,

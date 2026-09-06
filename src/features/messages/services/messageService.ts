@@ -1,6 +1,6 @@
 // Project LifeOrbit — Message Service
 import { supabase } from '@/lib/supabase/client';
-import { demoService, isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 
 export interface ConversationRow {
   id: string;
@@ -27,7 +27,7 @@ export const messageService = {
 
   async getConversations(userId: string): Promise<ConversationRow[]> {
     if (!isRealId(userId)) {
-      return demoService.getConversations();
+      return [];
     }
 
     // Step 1: Get conversation IDs the user participates in
@@ -37,9 +37,7 @@ export const messageService = {
       .eq('user_id', userId);
 
     if (partError) throw partError;
-    if (!participations || participations.length === 0) {
-      return demoService.getConversations();
-    }
+    if (!participations || participations.length === 0) return [];
 
     const conversationIds = participations.map(p => p.conversation_id);
 
@@ -132,7 +130,7 @@ export const messageService = {
     options?: { limit?: number; before?: string }
   ): Promise<MessageRow[]> {
     if (!isRealId(conversationId)) {
-      return demoService.getMessages(conversationId);
+      return [];
     }
 
     let query = supabase

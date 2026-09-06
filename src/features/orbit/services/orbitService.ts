@@ -10,7 +10,7 @@
 // The resulting order feeds the tiered rings: inner ring = most relevant,
 // middle = moderately relevant, outer = the broader local network.
 import { locationService } from '../../location/services/locationService';
-import { demoService } from '../../demo/demoService';
+import { supabase } from '@/lib/supabase/client';
 import type { OrbitNode } from '../components/OrbitCanvas';
 
 export interface NearbyUserResult {
@@ -33,18 +33,20 @@ export const orbitService = {
     radiusKm?: number;
     limit?: number;
   }): Promise<OrbitNode[]> {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId) return [];
+
+    if (!(await locationService.hasCurrentLocation(userId))) {
+      throw new Error('LOCATION_REQUIRED');
+    }
+
     let users: any[] = [];
     try {
       users = (await locationService.findNearbyUsers(options)) || [];
     } catch (err) {
-      console.warn('[Orbit] findNearbyUsers failed, using demo nodes:', err);
+      console.warn('[Orbit] findNearbyUsers failed:', err);
       users = [];
-    }
-
-    // Fresh install / no location set → find_nearby_users returns empty.
-    // Fall back to demo nodes so the orbit still feels alive.
-    if (users.length === 0) {
-      return demoService.getOrbitNodes().slice(0, options?.limit ?? demoService.getOrbitNodes().length);
     }
 
     const rows = users as unknown as NearbyUserResult[];

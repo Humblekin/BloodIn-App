@@ -47,7 +47,7 @@ export default function DiscoverScreen() {
     setError(null);
     try {
       if (activeFilter === 'people') {
-        const people = await discoverService.searchPeople();
+        const people = await discoverService.searchPeople({ bloodGroup: profile?.blood_group || undefined });
         setResults(people);
       } else if (activeFilter === 'communities') {
         const communities = await discoverService.searchCommunities();
@@ -63,14 +63,16 @@ export default function DiscoverScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter]);
+  }, [activeFilter, profile?.blood_group]);
 
   useEffect(() => {
     loadResults();
   }, [loadResults]);
 
   const filteredResults = searchQuery.trim()
-    ? results.filter((r) => (r.name || '').toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    ? results.filter((r) => [r.name, r.bloodGroup, r.subtitle]
+      .filter(Boolean)
+      .some((value) => value!.toLowerCase().includes(searchQuery.trim().toLowerCase())))
     : results;
 
   const renderFilterPill = (option: FilterOption) => (

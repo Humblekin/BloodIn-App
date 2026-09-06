@@ -13,7 +13,7 @@ import { useMessages } from '@/features/messages/hooks/useMessages';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { messageService, MessageRow } from '@/features/messages/services/messageService';
 import { supabase } from '@/lib/supabase/client';
-import { isRealId } from '@/features/demo/demoService';
+import { isRealId } from '@/utils/ids';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function ChatRoomScreen() {
@@ -84,30 +84,7 @@ export default function ChatRoomScreen() {
         // Realtime pushes it to other clients; ensure it also shows for the sender.
         setMessages(prev => (prev.some(m => m.id === sent.id) ? prev : [...prev, sent]));
       } else {
-        // Demo conversation — simulate a real reply so the flow feels complete.
-        const sentMsg: MessageRow = {
-          id: `local-${Date.now()}`,
-          conversation_id: id,
-          sender_id: session.user.id,
-          content,
-          is_system_message: false,
-          created_at: new Date().toISOString(),
-          sender_profile: { display_name: session.user.user_metadata?.display_name || 'You', avatar_url: null },
-        };
-        setMessages(prev => [...prev, sentMsg]);
-        setTimeout(() => {
-          const reply: MessageRow = {
-            id: `local-reply-${Date.now()}`,
-            conversation_id: id,
-            sender_id: 'demo-user-1',
-            content: 'Got it! Thanks for being ready to help — I will reach out with next steps shortly.',
-            is_system_message: false,
-            created_at: new Date().toISOString(),
-            sender_profile: { display_name: 'Ama Mensah', avatar_url: null },
-          };
-          setMessages(prev => [...prev, reply]);
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-        }, 900);
+        throw new Error('This conversation is no longer available.');
       }
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } catch (err) {

@@ -8,7 +8,6 @@
 //   tables, both of which only expose active/verified records via RLS.
 import { supabase } from '@/lib/supabase/client';
 import { locationService } from '@/features/location/services/locationService';
-import { demoService } from '@/features/demo/demoService';
 
 export type DiscoverItemType = 'person' | 'community' | 'organization';
 
@@ -38,12 +37,8 @@ export const discoverService = {
         limit: options?.limit ?? 20,
       })) || [];
     } catch (err) {
-      console.warn('[Discover] findNearbyUsers failed, using demo people:', err);
-      users = [];
-    }
-
-    if (users.length === 0) {
-      return demoService.getDiscover('people');
+      console.warn('[Discover] findNearbyUsers failed:', err);
+      throw err;
     }
 
     return (users || []).map((u) => ({
@@ -77,9 +72,8 @@ export const discoverService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getDiscover('communities');
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return (data || []).map((c) => ({
       id: c.id,
@@ -109,9 +103,8 @@ export const discoverService = {
       error = err;
     }
 
-    if (error || !data || data.length === 0) {
-      return demoService.getDiscover('organizations');
-    }
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
 
     return (data || []).map((o) => ({
       id: o.id,
