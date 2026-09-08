@@ -26,6 +26,9 @@ function Get-EnvValue($name) {
 $url = Get-EnvValue 'SUPABASE_URL'
 $key = Get-EnvValue 'SUPABASE_ANON_KEY'
 
+if ([string]::IsNullOrWhiteSpace($url)) { $url = Get-EnvValue 'EXPO_PUBLIC_SUPABASE_URL' }
+if ([string]::IsNullOrWhiteSpace($key)) { $key = Get-EnvValue 'EXPO_PUBLIC_SUPABASE_ANON_KEY' }
+
 if ([string]::IsNullOrWhiteSpace($url) -or [string]::IsNullOrWhiteSpace($key)) {
   Write-Error "SUPABASE_URL and SUPABASE_ANON_KEY are required (see .env or environment variables)"
   exit 1
