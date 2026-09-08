@@ -10,8 +10,13 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const PREMIUM_AMOUNT = 2000;
+const PREMIUM_CURRENCY = 'GHS';
+
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
+  SUPABASE_URL,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   { global: { headers: { 'x-client-info': 'paystack-verify' } } },
 );
@@ -33,6 +38,17 @@ async function getUserIdFromMetadata(data: any): Promise<string | null> {
 export default async (req: Request) => {
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+    const authorization = req.headers.get('Authorization');
+    if (!authorization || !SUPABASE_ANON_KEY) {
+      return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401 });
+    }
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authorization } },
+    });
+    const { data: authData } = await authClient.auth.getUser();
+    const user = authData.user;
+    if (!user) return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401 });
 
     const body = await req.json();
     const reference: string | null = body?.reference ?? null;
@@ -62,11 +78,30 @@ export default async (req: Request) => {
     }
 
     const tx = data?.data ?? {};
+    if (tx.reference && tx.reference !== reference) {
+      return new Response(JSON.stringify({ message: 'Transaction reference mismatch' }), { status: 400 });
+    }
+    const { data: pendingPayment } = await supabase
+      .from('payments')
+      .select('user_id, amount, currency, status')
+      .eq('reference', reference)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!pendingPayment || pendingPayment.amount !== PREMIUM_AMOUNT || pendingPayment.currency !== PREMIUM_CURRENCY) {
+      return new Response(JSON.stringify({ message: 'Transaction is not valid for this account' }), { status: 403 });
+    }
     const status = tx.status ?? 'unknown';
     const paid = status === 'success';
 
+    if (paid && (tx.amount !== PREMIUM_AMOUNT || tx.currency !== PREMIUM_CURRENCY)) {
+      return new Response(JSON.stringify({ message: 'Transaction amount or currency is invalid' }), { status: 400 });
+    }
+
     if (paid) {
       const userId = await getUserIdFromMetadata(tx);
+      if (userId !== user.id) {
+        return new Response(JSON.stringify({ message: 'Transaction identity mismatch' }), { status: 403 });
+      }
       const paymentRow: Record<string, unknown> = {
         reference,
         status,
@@ -78,9 +113,8 @@ export default async (req: Request) => {
 
       await supabase.from('payments').upsert(paymentRow, { onConflict: 'reference' });
 
-      if (userId) {
-        await supabase.rpc('grant_premium', { target_user_id: userId });
-      }
+      await supabase.from('payments').update({ status: 'success', raw_response: data }).eq('reference', reference);
+      await supabase.rpc('grant_premium', { target_user_id: user.id });
     }
 
     return new Response(JSON.stringify(data), {

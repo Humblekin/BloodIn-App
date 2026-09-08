@@ -14,6 +14,8 @@ const PAYSTACK_SECRETS: string[] = [
   Deno.env.get('PAYSTACK_SECRET_KEY'),
   Deno.env.get('PAYSTACK_LIVE_KEY'),
 ].filter((v) => typeof v === 'string' && v.length > 0) as string[];
+const PREMIUM_AMOUNT = 2000;
+const PREMIUM_CURRENCY = 'GHS';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE, {
   global: { headers: { 'x-client-info': 'paystack-webhook' } },
@@ -66,14 +68,24 @@ export default async (req: Request) => {
     if (typeof data.amount === 'number') paymentRow.amount = data.amount;
     if (data.currency) paymentRow.currency = data.currency;
 
-    if (reference) {
-      await supabase.from('payments').upsert(paymentRow, { onConflict: 'reference' });
+    if (!reference) return new Response(JSON.stringify({ status: 'ignored' }), { status: 200 });
+
+    const { data: pendingPayment } = await supabase
+      .from('payments')
+      .select('user_id, amount, currency, status')
+      .eq('reference', reference)
+      .maybeSingle();
+    if (!pendingPayment || pendingPayment.amount !== PREMIUM_AMOUNT || pendingPayment.currency !== PREMIUM_CURRENCY) {
+      return new Response(JSON.stringify({ status: 'ignored' }), { status: 200 });
     }
 
-    if (status === 'success' && userId) {
+    if (status === 'success' && data.reference === reference && data.amount === PREMIUM_AMOUNT && data.currency === PREMIUM_CURRENCY && userId === pendingPayment.user_id) {
+      await supabase.from('payments').update(paymentRow).eq('reference', reference);
       // grant_premium internally sets the trigger's trusted_action so the
       // profiles trigger doesn't reject the is_premium change.
-      await supabase.rpc('grant_premium', { target_user_id: userId });
+      await supabase.rpc('grant_premium', { target_user_id: pendingPayment.user_id });
+    } else {
+      await supabase.from('payments').update({ status: 'rejected', raw_response: event }).eq('reference', reference);
     }
 
     return new Response(JSON.stringify({ status: 'ok' }), { status: 200 });

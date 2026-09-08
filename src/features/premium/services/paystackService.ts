@@ -1,4 +1,5 @@
 import { Linking } from 'react-native';
+import { supabase } from '@/lib/supabase/client';
 
 export type PaystackInitPayload = {
   amount: number;
@@ -22,12 +23,15 @@ export const paystackService = {
     if (!SUPABASE_URL) throw new Error('Supabase URL not configured');
 
     const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/paystack-init`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
+        'Authorization': `Bearer ${accessToken}`,
         'apikey': anonKey,
       },
       body: JSON.stringify({ ...payload, mode: getMode() }),
@@ -51,12 +55,15 @@ export const paystackService = {
     if (!SUPABASE_URL) throw new Error('Supabase URL not configured');
 
     const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token;
+    if (!accessToken) throw new Error('Your session has expired. Please sign in again.');
 
     const res = await fetch(`${SUPABASE_URL}/functions/v1/paystack-verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
+        'Authorization': `Bearer ${accessToken}`,
         'apikey': anonKey,
       },
       body: JSON.stringify({ reference, mode: getMode() }),

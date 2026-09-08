@@ -19,8 +19,13 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
+const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+const PREMIUM_AMOUNT = 2000;
+const PREMIUM_CURRENCY = 'GHS';
+
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
+  SUPABASE_URL,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
   { global: { headers: { 'x-client-info': 'paystack-init' } } },
 );
@@ -28,6 +33,17 @@ const supabase = createClient(
 export default async (req: Request) => {
   try {
     if (req.method !== 'POST') return new Response('Method Not Allowed', { status: 405 });
+
+    const authorization = req.headers.get('Authorization');
+    if (!authorization || !SUPABASE_ANON_KEY) {
+      return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401 });
+    }
+    const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authorization } },
+    });
+    const { data: authData } = await authClient.auth.getUser();
+    const user = authData.user;
+    if (!user) return new Response(JSON.stringify({ message: 'Authentication required' }), { status: 401 });
 
     const body = await req.json();
     const mode = body?.mode === 'live' ? 'live' : 'test';
@@ -44,13 +60,12 @@ export default async (req: Request) => {
     }
 
     const metadata = body.metadata ?? {};
-    const currency = body.currency ?? 'GHS';
 
     const initializePayload: Record<string, unknown> = {
-      email: body.email,
-      amount: body.amount,
-      currency,
-      metadata: { ...metadata, mode },
+      email: user.email,
+      amount: PREMIUM_AMOUNT,
+      currency: PREMIUM_CURRENCY,
+      metadata: { ...metadata, user_id: user.id, premium_package: 'standard', mode },
     };
     if (body.callback_url) initializePayload.callback_url = body.callback_url;
 
@@ -74,17 +89,20 @@ export default async (req: Request) => {
     // Record a pending payment so a verified webhook can complete it later,
     // even if metadata is somehow dropped during redirect.
     const reference = json?.data?.reference ?? null;
-    if (reference && metadata.user_id) {
-      await supabase.from('payments').upsert(
+    if (reference) {
+      const { error: paymentError } = await supabase.from('payments').upsert(
         {
-          user_id: metadata.user_id,
+          user_id: user.id,
           reference,
-          amount: body.amount,
-          currency,
+          amount: PREMIUM_AMOUNT,
+          currency: PREMIUM_CURRENCY,
           status: 'pending',
         },
         { onConflict: 'reference' },
       );
+      if (paymentError) {
+        return new Response(JSON.stringify({ message: 'Could not reserve payment reference' }), { status: 500 });
+      }
     }
 
     return new Response(text, {
