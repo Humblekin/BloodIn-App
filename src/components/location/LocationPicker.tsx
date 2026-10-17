@@ -1,9 +1,8 @@
 // Project LifeOrbit — Location Picker Component
-// Lets a user pick their current location (GPS) and enrich it with the
-// seeded country/region/city hierarchy so the location can be stored fully.
+// Lets a user acquire their current verified GPS location and enrich it with the
+// seeded country/region/city hierarchy so the location can be stored reliably.
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View, ActivityIndicator, Alert } from 'react-native';
-import * as Location from 'expo-location';
+import { Pressable, StyleSheet, Text, View, ActivityIndicator, Alert, Linking } from 'react-native';
 import { MapPin } from 'lucide-react-native';
 
 import { Card } from '../ui/Card';
@@ -19,6 +18,7 @@ export interface PickedLocation {
   countryId?: number;
   regionId?: number;
   cityId?: number;
+  accuracy?: number | null;
 }
 
 interface LocationPickerProps {
@@ -26,66 +26,73 @@ interface LocationPickerProps {
   onLocationSelect: (location: PickedLocation) => void;
 }
 
-const ACCRA_FALLBACK = { latitude: 5.6037, longitude: -0.187 };
-
 export function LocationPicker({ currentLocationName, onLocationSelect }: LocationPickerProps) {
   const [resolving, setResolving] = useState(false);
-
-  const resolveAndEmit = async (latitude: number, longitude: number) => {
-    let countryId: number | undefined;
-    let regionId: number | undefined;
-    let cityId: number | undefined;
-    let name = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-
-    try {
-      const resolved = await locationService.resolveNearestCity(latitude, longitude);
-      if (resolved) {
-        countryId = resolved.countryId;
-        regionId = resolved.regionId;
-        cityId = resolved.cityId;
-        name = resolved.name;
-      }
-    } catch (err) {
-      console.warn('[LocationPicker] Nearest-city resolution failed:', err);
-    }
-
-    onLocationSelect({ latitude, longitude, name, countryId, regionId, cityId });
-  };
 
   const handleLocate = async () => {
     if (resolving) return;
     setResolving(true);
-    try {
-      let latitude = ACCRA_FALLBACK.latitude;
-      let longitude = ACCRA_FALLBACK.longitude;
-      let usedMock = false;
 
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const position = await Location.getCurrentPositionAsync();
-        if (position?.coords) {
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
+    try {
+      // 1. Acquire genuine device GPS coordinates
+      const coords = await locationService.acquireCurrentPosition();
+
+      // 2. Resolve nearest Ghana city/region if applicable
+      let countryId: number | undefined;
+      let regionId: number | undefined;
+      let cityId: number | undefined;
+      let name = `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+
+      try {
+        const resolved = await locationService.resolveNearestCity(coords.latitude, coords.longitude);
+        if (resolved) {
+          countryId = resolved.countryId;
+          regionId = resolved.regionId;
+          cityId = resolved.cityId;
+          name = resolved.name;
         }
-      } else {
-        usedMock = true;
+      } catch (resolveErr) {
+        console.warn('[LocationPicker] Nearest-city resolution note:', resolveErr);
       }
 
-      await resolveAndEmit(latitude, longitude);
+      onLocationSelect({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        name,
+        countryId,
+        regionId,
+        cityId,
+        accuracy: coords.accuracy,
+      });
+    } catch (err: any) {
+      console.warn('[LocationPicker] Location lookup error:', err);
+      const errMsg = err?.message || '';
 
-      if (usedMock) {
+      if (errMsg.includes('permanently denied') || errMsg.includes('Settings')) {
         Alert.alert(
-          'Location permission required',
-          'Using your approximate location instead. Enable location access in settings for precise positioning.'
+          'Location Permission Required',
+          'Location access is required to find nearby donors and community members. Please enable it in your device Settings.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ]
+        );
+      } else if (errMsg.includes('disabled') || errMsg.includes('services')) {
+        Alert.alert(
+          'Location Services Disabled',
+          'GPS/Location services are disabled on your device. Please turn on Location in quick settings and try again.'
+        );
+      } else if (errMsg === 'LOCATION_PERMISSION_DENIED') {
+        Alert.alert(
+          'Location Permission Denied',
+          'BloodIn needs your location permission to discover nearby donors. You can tap again to allow.'
+        );
+      } else {
+        Alert.alert(
+          'Location Unavailable',
+          'Could not get an accurate GPS reading. Please ensure you have a clear view of the sky and try again.'
         );
       }
-    } catch (err) {
-      console.warn('[LocationPicker] Location lookup failed:', err);
-      await resolveAndEmit(ACCRA_FALLBACK.latitude, ACCRA_FALLBACK.longitude);
-      Alert.alert(
-        'Using sample location',
-        'We could not access your location, so we used Accra, Ghana as a sample. You can update this later.'
-      );
     } finally {
       setResolving(false);
     }
@@ -110,7 +117,7 @@ export function LocationPicker({ currentLocationName, onLocationSelect }: Locati
           <View style={styles.textSection}>
             <Text style={styles.title}>{resolving ? 'Finding your location…' : 'Use my current location'}</Text>
             <Text numberOfLines={2} style={styles.subtitle}>
-              {currentLocationName || 'No location set yet — we will use your nearest city.'}
+              {currentLocationName || 'Tap to detect your current location via GPS'}
             </Text>
           </View>
         </View>
@@ -121,13 +128,14 @@ export function LocationPicker({ currentLocationName, onLocationSelect }: Locati
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: 12,
+    marginVertical: Spacing.xs,
   },
   wrapperPressed: {
-    opacity: 0.7,
+    opacity: 0.85,
   },
   card: {
     borderColor: Colors.border.DEFAULT,
+    backgroundColor: Colors.surface.DEFAULT,
   },
   content: {
     flexDirection: 'row',
@@ -138,7 +146,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: Colors.primary.muted,
+    backgroundColor: Colors.primary.subtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -146,14 +154,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.base,
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.sm,
     color: Colors.dark.DEFAULT,
-    marginBottom: Spacing.xs,
+    marginBottom: 2,
   },
   subtitle: {
     fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.xs,
     color: Colors.dark.tertiary,
+    lineHeight: 16,
   },
 });

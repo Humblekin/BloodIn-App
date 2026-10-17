@@ -21,6 +21,7 @@ export interface DiscoverResult {
   memberCount?: number;
   isVerified?: boolean;
   avatarUrl?: string | null;
+  donationWillingness?: string;
 }
 
 export const discoverService = {
@@ -28,6 +29,7 @@ export const discoverService = {
     bloodGroup?: string;
     radiusKm?: number;
     limit?: number;
+    willingOnly?: boolean;
   }): Promise<DiscoverResult[]> {
     let users: any[] = [];
     try {
@@ -35,6 +37,7 @@ export const discoverService = {
         bloodGroup: options?.bloodGroup,
         radiusKm: options?.radiusKm,
         limit: options?.limit ?? 20,
+        willingOnly: options?.willingOnly,
       })) || [];
     } catch (err) {
       console.warn('[Discover] findNearbyUsers failed:', err);
@@ -51,6 +54,7 @@ export const discoverService = {
       distanceKm: u.approximate_distance_km,
       bloodGroup: u.blood_group || null,
       avatarUrl: u.avatar_url,
+      donationWillingness: u.donation_willingness,
     }));
   },
 

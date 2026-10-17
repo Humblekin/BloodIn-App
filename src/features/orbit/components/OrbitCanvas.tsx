@@ -33,6 +33,9 @@ export interface OrbitNode {
   communityName?: string;
   hospitalName?: string;
   isPremium?: boolean;
+  donationWillingness?: 'willing' | 'not_willing' | 'unspecified';
+  isConnected?: boolean;
+  isAvailable?: boolean;
 }
 
 interface OrbitCanvasProps {

@@ -79,6 +79,8 @@ export const profileSetupSchema = z.object({
     .enum(BLOOD_GROUP_ENUM)
     .optional()
     .nullable(),
+  donationWillingness: z
+    .enum(['willing', 'not_willing', 'unspecified']),
   countryId: z.number().int().positive().optional().nullable(),
   regionId: z.number().int().positive().optional().nullable(),
   cityId: z.number().int().positive().optional().nullable(),

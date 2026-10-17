@@ -1,16 +1,33 @@
 declare module 'expo-location' {
+  export enum PermissionStatus {
+    GRANTED = 'granted',
+    DENIED = 'denied',
+    UNDETERMINED = 'undetermined'
+  }
+
+  export enum Accuracy {
+    Lowest = 1,
+    Low = 2,
+    Balanced = 3,
+    High = 4,
+    Highest = 5,
+    BestForNavigation = 6
+  }
+
   export enum LocationAccuracy {
-    Lowest,
-    Low,
-    Balanced,
-    High,
-    Highest,
-    BestForNavigation
+    Lowest = 1,
+    Low = 2,
+    Balanced = 3,
+    High = 4,
+    Highest = 5,
+    BestForNavigation = 6
   }
 
   export interface PermissionResponse {
-    status: 'granted' | 'denied' | string;
-    granted?: boolean;
+    status: PermissionStatus;
+    granted: boolean;
+    canAskAgain: boolean;
+    expires?: 'never' | number;
   }
 
   export interface PositionCoords {
@@ -28,7 +45,9 @@ declare module 'expo-location' {
     timestamp: number;
   }
 
+  export function isLocationServicesEnabledAsync(): Promise<boolean>;
+  export function getForegroundPermissionsAsync(): Promise<PermissionResponse>;
   export function requestForegroundPermissionsAsync(): Promise<PermissionResponse>;
-  export function getCurrentPositionAsync(options?: { accuracy?: LocationAccuracy }): Promise<LocationObject>;
-  export function watchPositionAsync(options: { accuracy?: LocationAccuracy }, callback: (loc: LocationObject) => void): Promise<{ remove: () => void }>;
+  export function getCurrentPositionAsync(options?: { accuracy?: Accuracy | LocationAccuracy }): Promise<LocationObject>;
+  export function watchPositionAsync(options: { accuracy?: Accuracy | LocationAccuracy }, callback: (loc: LocationObject) => void): Promise<{ remove: () => void }>;
 }

@@ -1,6 +1,5 @@
-// Project LifeOrbit — Setup Profile Screen
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Keyboard, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Keyboard, Alert, ScrollView, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -44,6 +43,7 @@ export default function SetupProfileScreen() {
       displayName: user?.user_metadata?.display_name || '',
       bio: '',
       bloodGroup: null,
+      donationWillingness: 'unspecified',
       countryId: null,
       regionId: null,
       cityId: null,
@@ -51,6 +51,7 @@ export default function SetupProfileScreen() {
   });
 
   const selectedBloodGroup = watch('bloodGroup');
+  const selectedWillingness = watch('donationWillingness');
 
   const onSubmit = async (data: ProfileSetupFormData) => {
     Keyboard.dismiss();
@@ -58,6 +59,7 @@ export default function SetupProfileScreen() {
       display_name: data.displayName,
       bio: data.bio,
       blood_group: data.bloodGroup,
+      donation_willingness: data.donationWillingness,
     });
     
     if (result.error) {
@@ -146,6 +148,48 @@ export default function SetupProfileScreen() {
               </View>
             </View>
 
+            {/* Donation Willingness Preference */}
+            <View style={styles.willingnessSection}>
+              <Text style={styles.sectionLabel}>Blood Donation Willingness</Text>
+              <Text style={styles.helperText}>
+                Are you willing to be contacted about donating blood?
+              </Text>
+              <View style={styles.willingnessOptions}>
+                {[
+                  { id: 'willing', label: 'Yes, I am willing' },
+                  { id: 'not_willing', label: 'No, I am not willing' },
+                  { id: 'unspecified', label: 'Prefer not to decide yet' },
+                ].map((opt) => (
+                  <TouchableOpacity
+                    key={opt.id}
+                    style={[
+                      styles.willingnessOption,
+                      selectedWillingness === opt.id && styles.willingnessOptionActive,
+                    ]}
+                    onPress={() => setValue('donationWillingness', opt.id as any)}
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={[
+                        styles.radioCircle,
+                        selectedWillingness === opt.id && styles.radioCircleActive,
+                      ]}
+                    >
+                      {selectedWillingness === opt.id && <View style={styles.radioDot} />}
+                    </View>
+                    <Text
+                      style={[
+                        styles.willingnessOptionText,
+                        selectedWillingness === opt.id && styles.willingnessOptionTextActive,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
             <View style={styles.locationSection}>
                <Text style={styles.sectionLabel}>Location</Text>
                <Controller
@@ -226,6 +270,59 @@ const styles = StyleSheet.create({
   },
   bloodButtonActive: {
     borderColor: Colors.primary.DEFAULT,
+  },
+  willingnessSection: {
+    marginTop: Spacing.sm,
+  },
+  helperText: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.tertiary,
+    marginBottom: Spacing.sm,
+  },
+  willingnessOptions: {
+    gap: Spacing.xs,
+  },
+  willingnessOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    padding: Spacing.md,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.border.DEFAULT,
+    backgroundColor: Colors.surface.DEFAULT,
+  },
+  willingnessOptionActive: {
+    borderColor: Colors.primary.DEFAULT,
+    backgroundColor: 'rgba(122, 31, 43, 0.04)',
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: Colors.dark.tertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleActive: {
+    borderColor: Colors.primary.DEFAULT,
+  },
+  radioDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.primary.DEFAULT,
+  },
+  willingnessOptionText: {
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.sm,
+    color: Colors.dark.DEFAULT,
+  },
+  willingnessOptionTextActive: {
+    fontFamily: FontFamily.semibold,
+    color: Colors.primary.DEFAULT,
   },
   locationSection: {
     marginTop: Spacing.sm,

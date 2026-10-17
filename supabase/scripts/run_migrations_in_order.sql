@@ -26,16 +26,22 @@ BEGIN;
 \i 'supabase/migrations/20260902000001_premium_upgrade.sql'
 COMMIT;
 
-\echo 'Verification checks (should report rows / function present)'
-\echo 'Checking is_premium column in profiles:'
-SELECT count(*) AS is_premium_columns
-FROM information_schema.columns
-WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'is_premium';
+\echo '5) Applying overhaul for location, donation willingness, and connection chat'
+BEGIN;
+\i 'supabase/migrations/20260909000001_overhaul_location_willingness_connections.sql'
+COMMIT;
 
-\echo 'Checking upgrade_to_premium function existence:'
+\echo 'Verification checks (should report rows / function present)'
+\echo 'Checking donation_willingness column in profiles:'
+SELECT count(*) AS donation_willingness_columns
+FROM information_schema.columns
+WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'donation_willingness';
+
+\echo 'Checking find_nearby_users function existence:'
 SELECT proname, pg_get_function_identity_arguments(p.oid) AS args
 FROM pg_proc p
 JOIN pg_namespace n ON p.pronamespace = n.oid
-WHERE p.proname = 'upgrade_to_premium' AND n.nspname = 'public';
+WHERE p.proname = 'find_nearby_users' AND n.nspname = 'public';
 
 \echo 'Done.'
+

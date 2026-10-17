@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Search, MapPin, Users, Building2 } from 'lucide-react-native';
+import { Search, MapPin, Users, Building2, Droplet } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
 import { Input } from '@/components/ui/Input';
@@ -37,6 +37,7 @@ export default function DiscoverScreen() {
   const { profile } = useAuthStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterType>('people');
+  const [willingOnly, setWillingOnly] = useState(false);
   const [results, setResults] = useState<DiscoverResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,10 @@ export default function DiscoverScreen() {
     setError(null);
     try {
       if (activeFilter === 'people') {
-        const people = await discoverService.searchPeople({ bloodGroup: profile?.blood_group || undefined });
+        const people = await discoverService.searchPeople({
+          bloodGroup: profile?.blood_group || undefined,
+          willingOnly,
+        });
         setResults(people);
       } else if (activeFilter === 'communities') {
         const communities = await discoverService.searchCommunities();
@@ -63,7 +67,7 @@ export default function DiscoverScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, profile?.blood_group]);
+  }, [activeFilter, profile?.blood_group, willingOnly]);
 
   useEffect(() => {
     loadResults();
@@ -99,6 +103,7 @@ export default function DiscoverScreen() {
         bloodGroup: item.bloodGroup || undefined,
         locationName: item.subtitle === 'Connected' ? undefined : item.subtitle,
         avatarUrl: item.avatarUrl,
+        donationWillingness: item.donationWillingness as any,
       });
     } else if (item.type === 'community') {
       router.push(`/(main)/community/${item.id}`);
@@ -109,6 +114,13 @@ export default function DiscoverScreen() {
 
   const renderResult = ({ item }: { item: DiscoverResult }) => {
     const isPerson = item.type === 'person';
+    const formattedDistance =
+      item.distanceKm != null && Number.isFinite(item.distanceKm)
+        ? item.distanceKm < 1
+          ? `${Math.round(item.distanceKm * 1000)} m`
+          : `${item.distanceKm.toFixed(1)} km`
+        : null;
+
     return (
       <TouchableOpacity style={styles.card} onPress={() => handleItemPress(item)} activeOpacity={0.75}>
         <Avatar name={item.name} url={item.avatarUrl} size="md" />
@@ -130,8 +142,8 @@ export default function DiscoverScreen() {
                 ) : (
                   <MapPin size={12} color={Colors.dark.tertiary} />
                 )}
-                {item.distanceKm != null && (
-                  <Text style={styles.metaText}>{Math.round(item.distanceKm)} km</Text>
+                {formattedDistance != null && (
+                  <Text style={styles.metaText}>{formattedDistance}</Text>
                 )}
                 {item.subtitle !== 'Connected' && item.subtitle ? (
                   <Text style={styles.metaText} numberOfLines={1}>{item.subtitle}</Text>
@@ -181,7 +193,21 @@ export default function DiscoverScreen() {
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => renderFilterPill(item)}
             contentContainerStyle={styles.filtersContainer}
+            style={styles.filtersList}
           />
+          {activeFilter === 'people' && (
+            <TouchableOpacity
+              style={[styles.willingToggle, willingOnly && styles.willingToggleActive]}
+              onPress={() => setWillingOnly((value) => !value)}
+              activeOpacity={0.7}
+              accessibilityLabel="Show only willing blood donors"
+            >
+              <Droplet size={14} color={willingOnly ? Colors.white : Colors.primary.DEFAULT} />
+              <Text style={[styles.willingToggleText, willingOnly && styles.willingToggleTextActive]}>
+                Willing only
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -233,11 +259,38 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
   },
   filtersScroll: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: Spacing.md,
+  },
+  filtersList: {
+    flex: 1,
   },
   filtersContainer: {
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
+  },
+  willingToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.primary.DEFAULT,
+  },
+  willingToggleActive: {
+    backgroundColor: Colors.primary.DEFAULT,
+  },
+  willingToggleText: {
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.xs,
+    color: Colors.primary.DEFAULT,
+  },
+  willingToggleTextActive: {
+    color: Colors.white,
   },
   filterPill: {
     paddingHorizontal: Spacing.md,

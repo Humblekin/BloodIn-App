@@ -34,6 +34,7 @@ import type {
   ReportReason,
   ReportStatus,
   ModerationAction,
+  DonationWillingness,
 } from './common';
 
 // ─── Profiles ─────────────────────────────────────────────
@@ -53,6 +54,7 @@ export interface ProfileRow {
   verification_level: number;
   human_verified: boolean;
   identity_verified: boolean;
+  donation_willingness: DonationWillingness;
   country_id: string | null;
   region_id: string | null;
   city_id: string | null;

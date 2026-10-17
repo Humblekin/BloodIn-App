@@ -4,6 +4,9 @@
 // ─── Blood Group ──────────────────────────────────────────
 export type BloodGroup = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | 'Unknown';
 
+// ─── Donation Willingness ──────────────────────────────────
+export type DonationWillingness = 'willing' | 'not_willing' | 'unspecified';
+
 // ─── Account Types ────────────────────────────────────────
 export type AccountType = 'individual' | 'community_admin' | 'organization_admin';
 

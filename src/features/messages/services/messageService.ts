@@ -108,15 +108,17 @@ export const messageService = {
   },
 
   async getOrCreateDirectConversation(userA: string, userB: string): Promise<string> {
-    // SECURITY DEFINER RPC: safely creates the conversation + both participant
-    // rows even though the participants INSERT policy only allows one's own row.
+    // SECURITY DEFINER RPC: requires accepted connection before starting direct chat
     const { data, error } = await supabase.rpc('create_direct_conversation', {
       user_a: userA,
       user_b: userB,
     });
 
     if (error) {
-      console.warn('[Messaging] create_direct_conversation RPC failed:', error);
+      console.warn('[Messaging] create_direct_conversation RPC error:', error.message);
+      if (error.message?.includes('accepted before starting a conversation')) {
+        throw new Error('You can only message this member after your connection request has been accepted.');
+      }
       throw error;
     }
 

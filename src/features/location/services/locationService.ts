@@ -1,11 +1,210 @@
 // Project LifeOrbit — Location Service
+import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase/client';
 
 export interface CountryRow { id: number; name: string; code: string; phone_code: string | null; }
 export interface RegionRow { id: number; country_id: number; name: string; }
 export interface CityRow { id: number; region_id: number; name: string; latitude: number | null; longitude: number | null; }
 
+export interface ValidCoordinates {
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  timestamp: number;
+}
+
+export interface LocationPermissionResult {
+  granted: boolean;
+  canAskAgain: boolean;
+  servicesEnabled: boolean;
+  status: Location.PermissionStatus | 'services_disabled';
+  message?: string;
+}
+
 export const locationService = {
+  // ─── Device Location Acquisition & Permissions ────────
+
+  /**
+   * Checks both device-level location services and app foreground permission.
+   */
+  async checkLocationPermission(): Promise<LocationPermissionResult> {
+    try {
+      const servicesEnabled = await Location.isLocationServicesEnabledAsync();
+      if (!servicesEnabled) {
+        return {
+          granted: false,
+          canAskAgain: true,
+          servicesEnabled: false,
+          status: 'services_disabled',
+          message: 'Location services are disabled on this device. Please turn on GPS.',
+        };
+      }
+
+      const permission = await Location.getForegroundPermissionsAsync();
+      return {
+        granted: permission.granted,
+        canAskAgain: permission.canAskAgain,
+        servicesEnabled: true,
+        status: permission.status,
+      };
+    } catch (err) {
+      console.warn('[Location] Permission check failed:', err);
+      return {
+        granted: false,
+        canAskAgain: true,
+        servicesEnabled: false,
+        status: Location.PermissionStatus.UNDETERMINED,
+        message: 'Could not check location permission.',
+      };
+    }
+  },
+
+  /**
+   * Prompts user for foreground location permission if not already granted.
+   */
+  async requestLocationPermission(): Promise<LocationPermissionResult> {
+    try {
+      const servicesEnabled = await Location.isLocationServicesEnabledAsync();
+      if (!servicesEnabled) {
+        return {
+          granted: false,
+          canAskAgain: true,
+          servicesEnabled: false,
+          status: 'services_disabled',
+          message: 'Location services are disabled on your device. Please turn on GPS/Location in system settings.',
+        };
+      }
+
+      const current = await Location.getForegroundPermissionsAsync();
+      if (current.granted) {
+        return {
+          granted: true,
+          canAskAgain: current.canAskAgain,
+          servicesEnabled: true,
+          status: current.status,
+        };
+      }
+
+      const requested = await Location.requestForegroundPermissionsAsync();
+      return {
+        granted: requested.granted,
+        canAskAgain: requested.canAskAgain,
+        servicesEnabled: true,
+        status: requested.status,
+        message: requested.granted
+          ? undefined
+          : requested.canAskAgain
+            ? 'Location permission was denied.'
+            : 'Location permission is permanently denied. Please enable it in device Settings.',
+      };
+    } catch (err) {
+      console.warn('[Location] Permission request failed:', err);
+      return {
+        granted: false,
+        canAskAgain: true,
+        servicesEnabled: false,
+        status: Location.PermissionStatus.DENIED,
+        message: 'Unable to request location permissions.',
+      };
+    }
+  },
+
+  /**
+   * Acquires the device's real GPS coordinates.
+   * Validates numeric bounds and horizontal accuracy.
+   * Never silently falls back to hardcoded city coordinates.
+   */
+  async acquireCurrentPosition(accuracy: Location.Accuracy = Location.Accuracy.Balanced): Promise<ValidCoordinates> {
+    const perm = await this.requestLocationPermission();
+    if (!perm.granted) {
+      throw new Error(perm.message || 'LOCATION_PERMISSION_DENIED');
+    }
+
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy,
+    });
+
+    if (!pos || !pos.coords) {
+      throw new Error('LOCATION_UNAVAILABLE');
+    }
+
+    const { latitude, longitude, accuracy: horizAccuracy } = pos.coords;
+
+    // Strict coordinate validation
+    if (
+      typeof latitude !== 'number' ||
+      typeof longitude !== 'number' ||
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      throw new Error('INVALID_COORDINATES_RECEIVED');
+    }
+
+    return {
+      latitude,
+      longitude,
+      accuracy: typeof horizAccuracy === 'number' && Number.isFinite(horizAccuracy) ? horizAccuracy : null,
+      timestamp: pos.timestamp || Date.now(),
+    };
+  },
+
+  /**
+   * One-stop method to acquire GPS coordinates, resolve nearest city hierarchy,
+   * and persist directly to the authenticated user's database record.
+   */
+  async acquireAndSaveUserLocation(userId: string): Promise<{
+    success: boolean;
+    error?: string;
+    coordinates?: ValidCoordinates;
+    locationName?: string;
+  }> {
+    try {
+      const coords = await this.acquireCurrentPosition();
+
+      let countryId: number | undefined;
+      let regionId: number | undefined;
+      let cityId: number | undefined;
+      let locationName = `${coords.latitude.toFixed(4)}, ${coords.longitude.toFixed(4)}`;
+
+      try {
+        const resolved = await this.resolveNearestCity(coords.latitude, coords.longitude);
+        if (resolved) {
+          countryId = resolved.countryId;
+          regionId = resolved.regionId;
+          cityId = resolved.cityId;
+          locationName = resolved.name;
+        }
+      } catch (err) {
+        console.warn('[Location] Nearest city resolution warning:', err);
+      }
+
+      await this.updateUserLocation(userId, {
+        countryId,
+        regionId,
+        cityId,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+
+      return {
+        success: true,
+        coordinates: coords,
+        locationName,
+      };
+    } catch (err: any) {
+      const message = err?.message || 'Failed to update location';
+      console.warn('[Location] acquireAndSaveUserLocation failed:', message);
+      return {
+        success: false,
+        error: message,
+      };
+    }
+  },
+
   // ─── Hierarchical Location Data ───────────────────────
 
   async getCountries(): Promise<CountryRow[]> {
@@ -103,12 +302,12 @@ export const locationService = {
     latitude?: number;
     longitude?: number;
   }): Promise<void> {
-      if (location.latitude !== undefined && (location.latitude < -90 || location.latitude > 90)) {
-        throw new Error('Invalid latitude');
-      }
-      if (location.longitude !== undefined && (location.longitude < -180 || location.longitude > 180)) {
-        throw new Error('Invalid longitude');
-      }
+    if (location.latitude !== undefined && (location.latitude < -90 || location.latitude > 90 || !Number.isFinite(location.latitude))) {
+      throw new Error('Invalid latitude');
+    }
+    if (location.longitude !== undefined && (location.longitude < -180 || location.longitude > 180 || !Number.isFinite(location.longitude))) {
+      throw new Error('Invalid longitude');
+    }
 
     const { error } = await supabase
       .rpc('set_user_location', {
@@ -159,6 +358,7 @@ export const locationService = {
     radiusKm?: number;
     limit?: number;
     offset?: number;
+    willingOnly?: boolean;
   }) {
     const { data: authData } = await supabase.auth.getUser();
     const userId = authData.user?.id;
@@ -174,6 +374,7 @@ export const locationService = {
       p_radius_km: options?.radiusKm || 25,
       p_limit: options?.limit || 20,
       p_offset: options?.offset || 0,
+      p_willing_only: options?.willingOnly ?? false,
     });
 
     if (error) throw error;

@@ -39,3 +39,12 @@
     - [x] `premiumService.ts`, `PremiumBadge`, `profile/premium.tsx` upgrade screen
     - [x] Premium nav link + badge on profile, orbit modal, connections
     - [x] Feed boost perk (premium authors' 24h posts float to top)
+- [x] Location, Orbit, Donation Willingness & Connection Chat Overhaul
+    - [x] Single authoritative location service (`locationService.ts`) with real GPS acquisition, accuracy checks, and permission handling
+    - [x] Removed hardcoded Accra/city fallback coordinates in `LocationPicker`
+    - [x] Strict geographic ascending distance sorting in Orbit (`orbitService.ts` and `OrbitCanvas.tsx`)
+    - [x] Added `donation_willingness` (`willing` | `not_willing` | `unspecified`) to profiles, setup-profile, and edit-profile screens
+    - [x] Filter willing-only donors in Orbit and Discover
+    - [x] Connection request lifecycle and backend-enforced chat authorization (RLS + `create_direct_conversation` RPC)
+    - [x] Automated test suite in `scripts/test_overhaul.js` and clean TypeScript verification
+

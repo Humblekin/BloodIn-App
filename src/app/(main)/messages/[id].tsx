@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, KeyboardAvoidingView, Platform, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { Header } from '@/components/layout/Header';
 import { Input } from '@/components/ui/Input';
@@ -31,8 +31,9 @@ export default function ChatRoomScreen() {
     try {
       const data = await fetchMessages(id);
       setMessages(data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.warn('[ChatRoom] loadMessages error:', err);
+      Alert.alert('Unable to load messages', 'You must have an accepted connection with this member to participate in this chat.');
     }
   };
 
@@ -87,9 +88,10 @@ export default function ChatRoomScreen() {
         throw new Error('This conversation is no longer available.');
       }
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setInputText(content); // revert on error
+      Alert.alert('Message Failed', err?.message || 'You must have an accepted connection to send messages.');
     }
   };
 
