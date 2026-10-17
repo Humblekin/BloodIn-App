@@ -11,6 +11,8 @@ import { locationService } from '@/features/location/services/locationService';
 
 export type DiscoverItemType = 'person' | 'community' | 'organization';
 
+const DEFAULT_DISCOVERY_RADIUS_KM = 750;
+
 export interface DiscoverResult {
   id: string;
   type: DiscoverItemType;
@@ -35,8 +37,8 @@ export const discoverService = {
     try {
       users = (await locationService.findNearbyUsers({
         bloodGroup: options?.bloodGroup,
-        radiusKm: options?.radiusKm,
-        limit: options?.limit ?? 20,
+        radiusKm: options?.radiusKm ?? DEFAULT_DISCOVERY_RADIUS_KM,
+        limit: options?.limit ?? 100,
         willingOnly: options?.willingOnly,
       })) || [];
     } catch (err) {

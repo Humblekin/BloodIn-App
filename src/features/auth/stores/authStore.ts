@@ -32,6 +32,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
+  updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
   fetchProfile: () => Promise<void>;
   fetchPrivacySettings: () => Promise<void>;
   updateProfile: (updates: Partial<ProfileRow>) => Promise<{ error: string | null }>;
@@ -222,7 +223,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: createURL('reset-password', { scheme: 'bloodin' }),
+      });
 
       if (error) {
         set({ isLoading: false, error: error.message });
@@ -233,6 +236,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { error: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Password reset failed';
+      set({ isLoading: false, error: message });
+      return { error: { message } as AuthError };
+    }
+  },
+
+  updatePassword: async (password) => {
+    try {
+      set({ isLoading: true, error: null });
+
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) {
+        set({ isLoading: false, error: error.message });
+        return { error };
+      }
+
+      set({ isLoading: false });
+      return { error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Password update failed';
       set({ isLoading: false, error: message });
       return { error: { message } as AuthError };
     }

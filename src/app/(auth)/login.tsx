@@ -1,6 +1,6 @@
 // Project LifeOrbit — Login Screen
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Keyboard, Pressable, Alert } from 'react-native';
+import React, { useRef } from 'react';
+import { View, Text, StyleSheet, Keyboard, Alert, type TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,11 +19,13 @@ import { Spacing } from '../../constants/spacing';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const passwordInputRef = useRef<TextInput>(null);
   const { signIn, isLoading, error, clearError } = useAuthStore();
 
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<SignInFormData>({
     resolver: zodResolver(signInSchema),
@@ -43,6 +45,13 @@ export default function LoginScreen() {
     } else {
       // The _layout will handle redirecting since the auth state changes
     }
+  };
+
+  const openPasswordReset = () => {
+    const email = watch('email').trim();
+    router.push(email
+      ? `/(auth)/reset-password?email=${encodeURIComponent(email)}`
+      : '/(auth)/reset-password');
   };
 
   return (
@@ -68,6 +77,9 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   keyboardType="email-address"
                   autoComplete="email"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
+                  onSubmitEditing={() => passwordInputRef.current?.focus()}
                   leftIcon={<Mail size={20} color={Colors.dark.tertiary} />}
                   value={value}
                   onChangeText={onChange}
@@ -82,10 +94,13 @@ export default function LoginScreen() {
               name="password"
               render={({ field: { onChange, onBlur, value } }) => (
                 <Input
+                  ref={passwordInputRef}
                   label="Password"
                   placeholder="Enter your password"
                   secureTextEntry
                   autoComplete="password"
+                  returnKeyType="go"
+                  onSubmitEditing={handleSubmit(onSubmit)}
                   leftIcon={<Lock size={20} color={Colors.dark.tertiary} />}
                   value={value}
                   onChangeText={onChange}
@@ -100,7 +115,7 @@ export default function LoginScreen() {
             <Button
               title="Forgot password?"
               variant="ghost"
-              onPress={() => Alert.alert('Coming Soon', 'Password reset will be implemented in a future update.')}
+              onPress={openPasswordReset}
               style={styles.forgotPassword}
               textStyle={styles.forgotPasswordText}
             />

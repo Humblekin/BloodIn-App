@@ -1,6 +1,13 @@
 // Project LifeOrbit — Location Service
 import * as Location from 'expo-location';
+import { Platform } from 'react-native';
 import { supabase } from '@/lib/supabase/client';
+import { calculateDistanceKm } from '@/utils/geo';
+
+const MAX_LOCATION_ACCURACY_METERS = 5000;
+const MAX_WEB_LOCATION_ACCURACY_METERS = 25000;
+const RETRY_LOCATION_ACCURACY_METERS = 1000;
+const MAX_CITY_LABEL_DISTANCE_KM = 50;
 
 export interface CountryRow { id: number; name: string; code: string; phone_code: string | null; }
 export interface RegionRow { id: number; country_id: number; name: string; }
@@ -11,6 +18,21 @@ export interface ValidCoordinates {
   longitude: number;
   accuracy: number | null;
   timestamp: number;
+}
+
+export interface NearbyUserResult {
+  user_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  blood_group: string | null;
+  city_name: string | null;
+  region_name: string | null;
+  country_name: string | null;
+  approximate_distance_km: number;
+  is_available: boolean;
+  is_connected: boolean;
+  is_premium: boolean;
+  donation_willingness?: 'willing' | 'not_willing' | 'unspecified';
 }
 
 export interface LocationPermissionResult {
@@ -29,7 +51,7 @@ export const locationService = {
    */
   async checkLocationPermission(): Promise<LocationPermissionResult> {
     try {
-      const servicesEnabled = await Location.isLocationServicesEnabledAsync();
+      const servicesEnabled = await Location.hasServicesEnabledAsync();
       if (!servicesEnabled) {
         return {
           granted: false,
@@ -64,38 +86,43 @@ export const locationService = {
    */
   async requestLocationPermission(): Promise<LocationPermissionResult> {
     try {
-      const servicesEnabled = await Location.isLocationServicesEnabledAsync();
-      if (!servicesEnabled) {
+      const current = await Location.getForegroundPermissionsAsync();
+      const permission = current.granted
+        ? current
+        : await Location.requestForegroundPermissionsAsync();
+
+      if (!permission.granted) {
         return {
           granted: false,
-          canAskAgain: true,
-          servicesEnabled: false,
-          status: 'services_disabled',
-          message: 'Location services are disabled on your device. Please turn on GPS/Location in system settings.',
-        };
-      }
-
-      const current = await Location.getForegroundPermissionsAsync();
-      if (current.granted) {
-        return {
-          granted: true,
-          canAskAgain: current.canAskAgain,
+          canAskAgain: permission.canAskAgain,
           servicesEnabled: true,
-          status: current.status,
+          status: permission.status,
+          message: Platform.OS === 'web'
+            ? 'Location is blocked for this site. Allow location access in your browser site settings, then try again.'
+            : permission.canAskAgain
+              ? 'Location permission was denied. Allow BloodIn to use your location and try again.'
+              : 'Location permission is disabled. Please enable it for BloodIn in device Settings.',
         };
       }
 
-      const requested = await Location.requestForegroundPermissionsAsync();
+      let servicesEnabled = await Location.hasServicesEnabledAsync();
+      if (!servicesEnabled && Platform.OS === 'android') {
+        try {
+          await Location.enableNetworkProviderAsync();
+        } catch {
+          // Re-check below so a dismissed system prompt produces an actionable state.
+        }
+        servicesEnabled = await Location.hasServicesEnabledAsync();
+      }
+
       return {
-        granted: requested.granted,
-        canAskAgain: requested.canAskAgain,
-        servicesEnabled: true,
-        status: requested.status,
-        message: requested.granted
+        granted: servicesEnabled,
+        canAskAgain: permission.canAskAgain,
+        servicesEnabled,
+        status: servicesEnabled ? permission.status : 'services_disabled',
+        message: servicesEnabled
           ? undefined
-          : requested.canAskAgain
-            ? 'Location permission was denied.'
-            : 'Location permission is permanently denied. Please enable it in device Settings.',
+          : 'Device Location is turned off. Enable Location Services in Settings, then try again.',
       };
     } catch (err) {
       console.warn('[Location] Permission request failed:', err);
@@ -114,15 +141,47 @@ export const locationService = {
    * Validates numeric bounds and horizontal accuracy.
    * Never silently falls back to hardcoded city coordinates.
    */
-  async acquireCurrentPosition(accuracy: Location.Accuracy = Location.Accuracy.Balanced): Promise<ValidCoordinates> {
+  async acquireCurrentPosition(accuracy: Location.Accuracy = Location.Accuracy.High): Promise<ValidCoordinates> {
     const perm = await this.requestLocationPermission();
     if (!perm.granted) {
       throw new Error(perm.message || 'LOCATION_PERMISSION_DENIED');
     }
 
-    const pos = await Location.getCurrentPositionAsync({
-      accuracy,
-    });
+    let pos: Location.LocationObject;
+    try {
+      pos = await Location.getCurrentPositionAsync({
+        accuracy,
+        mayShowUserSettingsDialog: Platform.OS === 'android',
+      });
+    } catch (error) {
+      if (accuracy !== Location.Accuracy.High) throw error;
+      console.warn('[Location] High-accuracy capture failed; retrying with balanced accuracy:', error);
+      pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    }
+
+    const firstAccuracy = pos.coords.accuracy;
+    if (
+      typeof firstAccuracy === 'number' &&
+      Number.isFinite(firstAccuracy) &&
+      firstAccuracy > RETRY_LOCATION_ACCURACY_METERS
+    ) {
+      try {
+        const refinedPosition = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Highest,
+          mayShowUserSettingsDialog: Platform.OS === 'android',
+        });
+        const refinedAccuracy = refinedPosition.coords.accuracy;
+        if (
+          typeof refinedAccuracy === 'number' &&
+          Number.isFinite(refinedAccuracy) &&
+          refinedAccuracy < firstAccuracy
+        ) {
+          pos = refinedPosition;
+        }
+      } catch (error) {
+        console.warn('[Location] Highest-accuracy retry failed; keeping the first valid fix:', error);
+      }
+    }
 
     if (!pos || !pos.coords) {
       throw new Error('LOCATION_UNAVAILABLE');
@@ -144,10 +203,26 @@ export const locationService = {
       throw new Error('INVALID_COORDINATES_RECEIVED');
     }
 
+    const validAccuracy = typeof horizAccuracy === 'number' && Number.isFinite(horizAccuracy)
+      ? horizAccuracy
+      : null;
+    const maximumAccuracy = Platform.OS === 'web'
+      ? MAX_WEB_LOCATION_ACCURACY_METERS
+      : MAX_LOCATION_ACCURACY_METERS;
+    if (validAccuracy !== null && validAccuracy > maximumAccuracy) {
+      const maxDistanceKm = maximumAccuracy / 1000;
+      throw new Error(`Location accuracy is worse than ${maxDistanceKm} km. Enable precise location or use a mobile device for nearby matching.`);
+    }
+    if (Platform.OS === 'web' && validAccuracy !== null && validAccuracy > MAX_LOCATION_ACCURACY_METERS) {
+      console.warn(
+        `[Location] Browser supplied an approximate fix (about ${Math.round(validAccuracy / 1000)} km accuracy); nearby distances may be approximate.`
+      );
+    }
+
     return {
       latitude,
       longitude,
-      accuracy: typeof horizAccuracy === 'number' && Number.isFinite(horizAccuracy) ? horizAccuracy : null,
+      accuracy: validAccuracy,
       timestamp: pos.timestamp || Date.now(),
     };
   },
@@ -272,17 +347,17 @@ export const locationService = {
     if (rows.length === 0) return null;
 
     let nearest = rows[0];
-    let nearestDist = Number.POSITIVE_INFINITY;
+    let nearestDistKm = Number.POSITIVE_INFINITY;
 
     for (const row of rows) {
-      const dlat = (row.latitude ?? 0) - latitude;
-      const dlng = (row.longitude ?? 0) - longitude;
-      const dist = dlat * dlat + dlng * dlng;
-      if (dist < nearestDist) {
+      const distanceKm = calculateDistanceKm(latitude, longitude, row.latitude, row.longitude);
+      if (distanceKm < nearestDistKm) {
         nearest = row;
-        nearestDist = dist;
+        nearestDistKm = distanceKm;
       }
     }
+
+    if (nearestDistKm > MAX_CITY_LABEL_DISTANCE_KM) return null;
 
     const region = Array.isArray(nearest.regions) ? nearest.regions[0] : nearest.regions;
     if (!region) return null;
@@ -359,13 +434,15 @@ export const locationService = {
     limit?: number;
     offset?: number;
     willingOnly?: boolean;
-  }) {
-    const { data: authData } = await supabase.auth.getUser();
+  }): Promise<NearbyUserResult[]> {
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    if (authError) throw authError;
     const userId = authData.user?.id;
 
     if (!userId) {
-      console.warn('[Location] findNearbyUsers called without a session');
-      return [];
+      throw Object.assign(new Error('Authentication is required to discover nearby users.'), {
+        code: 'AUTH_REQUIRED',
+      });
     }
 
     const { data, error } = await supabase.rpc('find_nearby_users', {
@@ -378,6 +455,6 @@ export const locationService = {
     });
 
     if (error) throw error;
-    return data || [];
+    return (data || []) as NearbyUserResult[];
   },
 };

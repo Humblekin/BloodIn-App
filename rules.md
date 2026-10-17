@@ -27,3 +27,13 @@
 - **Branching & Commits:** Use clear, conventional commit messages (e.g., `feat:`, `fix:`, `refactor:`, `chore:`).
 - **Verification:** Ensure TypeScript passes (`npx tsc --noEmit`) and Expo boots without syntax/module errors before pushing code.
 - **Task Tracking:** Keep `task.md` up to date as tasks and phases are completed.
+
+## 4. BloodIn Redesign Requirements
+- Preserve the existing Expo Router architecture, authentication, Supabase services, database schema, Realtime behavior, and Row Level Security while changing presentation.
+- Use real profile and request data. Never fabricate donor availability, blood inventory, hospital verification, or messages.
+- Retain functional loading, empty, error, offline, keyboard, and safe-area states on redesigned screens.
+- Use local image assets where suitable; do not reference nonexistent files or represent generic imagery as an authentic BloodIn photograph.
+- Use the existing icon and component libraries before adding dependencies. Keep touch targets accessible and layouts responsive.
+- The supplied brief requests vivid red (`#F20D19`) and light neutrals, but visual fidelity cannot be validated until its referenced screenshot is available. Document estimates and limitations honestly.
+- Do not overwrite or revert pre-existing worktree changes. Check `git status` before and after edits.
+- Update `task.md` with actual implementation and verification status; never mark a check complete based only on intended behavior or source inspection.

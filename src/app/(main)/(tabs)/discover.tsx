@@ -3,16 +3,18 @@
 // network. People results come from the privacy-aware find_nearby_users RPC;
 // communities and organizations come from live Supabase queries (RLS-protected).
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Search, MapPin, Users, Building2, Droplet } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
 import { Header } from '@/components/layout/Header';
 import { Input } from '@/components/ui/Input';
 import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
 import { OrbitProfileModal } from '@/features/orbit/components/OrbitProfileModal';
 import { discoverService, type DiscoverResult, type DiscoverItemType } from '@/features/discover/services/discoverService';
+import { locationService } from '@/features/location/services/locationService';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
@@ -34,29 +36,46 @@ const FILTERS: FilterOption[] = [
 
 export default function DiscoverScreen() {
   const router = useRouter();
-  const { profile } = useAuthStore();
-  const [searchQuery, setSearchQuery] = useState('');
+  const { search } = useLocalSearchParams<{ search?: string }>();
+  const { user } = useAuthStore();
+  const [searchQuery, setSearchQuery] = useState(search || '');
   const [activeFilter, setActiveFilter] = useState<FilterType>('people');
   const [willingOnly, setWillingOnly] = useState(false);
   const [results, setResults] = useState<DiscoverResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [locationRequired, setLocationRequired] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<OrbitNode | null>(null);
+
+  useEffect(() => {
+    setSearchQuery(search || '');
+  }, [search]);
 
   const loadResults = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       if (activeFilter === 'people') {
+        const hasLocation = user ? await locationService.hasCurrentLocation(user.id) : false;
+        if (!hasLocation) {
+          setLocationRequired(true);
+          setResults([]);
+          return;
+        }
+
+        setLocationRequired(false);
         const people = await discoverService.searchPeople({
-          bloodGroup: profile?.blood_group || undefined,
+          limit: 100,
           willingOnly,
         });
         setResults(people);
       } else if (activeFilter === 'communities') {
+        setLocationRequired(false);
         const communities = await discoverService.searchCommunities();
         setResults(communities);
       } else {
+        setLocationRequired(false);
         const organizations = await discoverService.searchOrganizations();
         setResults(organizations);
       }
@@ -67,11 +86,13 @@ export default function DiscoverScreen() {
     } finally {
       setLoading(false);
     }
-  }, [activeFilter, profile?.blood_group, willingOnly]);
+  }, [activeFilter, user?.id, willingOnly]);
 
-  useEffect(() => {
-    loadResults();
-  }, [loadResults]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadResults();
+    }, [loadResults])
+  );
 
   const filteredResults = searchQuery.trim()
     ? results.filter((r) => [r.name, r.bloodGroup, r.subtitle]
@@ -109,6 +130,31 @@ export default function DiscoverScreen() {
       router.push(`/(main)/community/${item.id}`);
     } else {
       Alert.alert(item.name, 'Organization profiles are not available yet.');
+    }
+  };
+
+  const handleEnableLocation = async () => {
+    if (!user) {
+      router.push('/(auth)/welcome');
+      return;
+    }
+
+    setLocating(true);
+    setError(null);
+    try {
+      const result = await locationService.acquireAndSaveUserLocation(user.id);
+      if (!result.success) {
+        setError(result.error || 'Could not save your location. Please try again.');
+        return;
+      }
+
+      setLocationRequired(false);
+      await loadResults();
+    } catch (err) {
+      console.warn('[Discover] Failed to enable location:', err);
+      setError('Could not enable location right now. Please try again.');
+    } finally {
+      setLocating(false);
     }
   };
 
@@ -216,6 +262,29 @@ export default function DiscoverScreen() {
           <View style={styles.centerState}>
             <ActivityIndicator color={Colors.primary.DEFAULT} />
           </View>
+        ) : locationRequired ? (
+          <View style={styles.centerState}>
+            <MapPin size={28} color={Colors.primary.DEFAULT} />
+            <Text style={styles.stateText}>
+              Enable location to find nearby people. Your precise coordinates are used for distance matching.
+            </Text>
+            {error ? <Text style={styles.locationError}>{error}</Text> : null}
+            {error?.includes('Settings') && Platform.OS !== 'web' ? (
+              <Button
+                title="Open Settings"
+                variant="outline"
+                onPress={() => { void Linking.openSettings(); }}
+                style={styles.locationButton}
+              />
+            ) : null}
+            <Button
+              title="Enable Location"
+              onPress={handleEnableLocation}
+              isLoading={locating}
+              leftIcon={<MapPin size={16} color={Colors.white} />}
+              style={styles.locationButton}
+            />
+          </View>
         ) : error ? (
           <View style={styles.centerState}>
             <Text style={styles.stateText}>{error}</Text>
@@ -233,8 +302,7 @@ export default function DiscoverScreen() {
             ListEmptyComponent={
               <View style={styles.centerState}>
                 <Text style={styles.stateText}>
-                  No {activeFilter} found{searchQuery.trim() ? ' matching your search' : ''}. 
-                  {activeFilter === 'people' ? ' Set your location in your profile to see nearby people.' : ''}
+                  No {activeFilter} found{searchQuery.trim() ? ' matching your search' : ''}.
                 </Text>
               </View>
             }
@@ -357,6 +425,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  locationButton: {
+    marginTop: Spacing.md,
+  },
+  locationError: {
+    marginTop: Spacing.sm,
+    color: Colors.semantic.critical.DEFAULT,
+    fontFamily: FontFamily.medium,
+    fontSize: FontSize.sm,
+    textAlign: 'center',
   },
   stateText: {
     fontFamily: FontFamily.regular,

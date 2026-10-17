@@ -29,10 +29,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     const handleAuthUrl = (url: string) => {
-      if (!url.includes('/auth/callback')) return;
+      if (!url.includes('/auth/callback') && !url.includes('/reset-password')) return;
 
       void completeAuthCallback(url).then(({ error }) => {
-        if (error) console.warn('[Auth] Email confirmation failed:', error.message);
+        if (error) console.warn('[Auth] Auth link failed:', error.message);
       });
     };
 
@@ -48,8 +48,9 @@ export default function RootLayout() {
     if (!fontsLoaded || !isInitialized) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isPasswordResetRoute = inAuthGroup && (segments as string[])[1] === 'reset-password';
 
-    if (user && inAuthGroup) {
+    if (user && inAuthGroup && !isPasswordResetRoute) {
       // If user is signed in and trying to access auth screens, redirect to main
       router.replace('/(main)/(tabs)');
     } else if (!user && !inAuthGroup) {

@@ -97,3 +97,27 @@
 - Keep all production and anon keys isolated; never check `.env` into source control.
 - Maintain automated GitHub Action keepalive workflow (`.github/workflows/supabase-keepalive.yml`) to prevent Supabase inactivity pausing.
 - Audit RLS policies periodically to guarantee zero cross-tenant data leaks.
+
+## 6. BloodIn Mobile Redesign
+
+### Design reference and audit
+- The user supplied a detailed three-screen redesign brief on 2026-10-17. The visual target is `assets/images/Screenshot (2).png`, a composite showing home, conversation, and donation screens. Treat it as the visual specification and compare rendered screens against it throughout implementation.
+- Existing stack: Expo SDK 57, React Native 0.86, Expo Router, TypeScript, lucide-react-native, React Native StyleSheet, Supabase, and Inter loaded through Expo Fonts.
+- Existing primary routes: `src/app/(main)/(tabs)/index.tsx` (home), `src/app/(main)/messages/[id].tsx` (conversation), and `src/app/(main)/requests/[id].tsx` (request coordination details).
+- Home already reads active requests and feed posts from services; chat uses message hooks and Supabase Realtime; request details load live records and submit offers. Redesign these surfaces in place and preserve those integrations.
+- Existing local imagery: `assets/images/blood_donation_hero.jpg` and `assets/images/blood_donation_care.jpg`; inspect their suitability before choosing placement.
+- Current design tokens are in `src/constants/colors.ts`, `spacing.ts`, and `typography.ts`. Existing brand primary is burgundy (`#7A1F2B`), while the supplied brief proposes vivid red (`#F20D19`) and a light neutral interface.
+
+### Screen specifications (textual brief; proportions are provisional)
+- **Home:** compact vivid-red greeting/header with real profile avatar and notification action; donation photograph card; pill search/discovery entry; four compact two-column action tiles; live image-led emergency requests; compact white bottom navigation with active red pill.
+- **Conversation:** compact contact header with back navigation and real contact identity; white message canvas; incoming pale-gray and outgoing vivid-red bubbles; real timestamps; safe-area-aware composer and keyboard handling; preserve authorization, ordering, and Realtime behavior. Do not imply call/attachment features unless implemented.
+- **Request details:** vivid-red upper region and donation image only if appropriate to available local assets; white details surface with real blood group, request, location, and units; existing offer-to-help workflow and safety disclaimer retained. No unsupported statistics or fabricated inventory.
+- Measure the three phone mockups rather than browser chrome or gray canvas in the composite. Keep responsive Flexbox and safe areas in the app; refine dimensions and crops by comparing actual captures.
+
+### Implementation milestones
+1. Audit current routes, dependencies, assets, docs, and worktree; preserve unrelated edits.
+2. Update design tokens and reusable UI only where they support consistency without duplicating working components.
+3. Redesign home, conversation, and request detail in place; verify real workflows and states.
+4. Extend the visual system to remaining existing screens without removing functionality.
+5. Run available tests and type checks; launch the app and capture/compare actual screens when the environment supports it.
+6. Record completed screens, tests, known gaps, and the exact next task in `task.md`.

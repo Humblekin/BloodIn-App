@@ -45,9 +45,10 @@ declare module 'expo-location' {
     timestamp: number;
   }
 
-  export function isLocationServicesEnabledAsync(): Promise<boolean>;
+  export function hasServicesEnabledAsync(): Promise<boolean>;
   export function getForegroundPermissionsAsync(): Promise<PermissionResponse>;
   export function requestForegroundPermissionsAsync(): Promise<PermissionResponse>;
-  export function getCurrentPositionAsync(options?: { accuracy?: Accuracy | LocationAccuracy }): Promise<LocationObject>;
+  export function enableNetworkProviderAsync(): Promise<void>;
+  export function getCurrentPositionAsync(options?: { accuracy?: Accuracy | LocationAccuracy; mayShowUserSettingsDialog?: boolean }): Promise<LocationObject>;
   export function watchPositionAsync(options: { accuracy?: Accuracy | LocationAccuracy }, callback: (loc: LocationObject) => void): Promise<{ remove: () => void }>;
 }

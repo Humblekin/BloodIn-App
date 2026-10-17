@@ -1,26 +1,36 @@
 // Project LifeOrbit — Welcome Screen
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '../../components/layout/Screen';
 import { Button } from '../../components/ui/Button';
-import { BloodLinkCharacter3D } from '../../components/ui/BloodLinkCharacter3D';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize, LineHeight } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
 import { Branding } from '../../constants/branding';
+import SocialFriends from '../../../assets/illustrations/social-friends.svg';
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const { height: screenHeight } = useWindowDimensions();
+  const illustrationHeight = Math.min(screenHeight * 0.34, 260);
+  const illustrationWidth = illustrationHeight * (593.048 / 800.481);
 
   return (
     <Screen padding safeArea="bottom">
       <View style={styles.container}>
         <View style={styles.content}>
-          <View style={styles.artworkContainer}>
-            <BloodLinkCharacter3D size={240} />
+          <View
+            style={[
+              styles.illustration,
+              { width: illustrationWidth, height: illustrationHeight },
+            ]}
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel="Friends supporting one another"
+          >
+            <SocialFriends width={illustrationWidth} height={illustrationHeight} />
           </View>
-
           <Text style={styles.appName}>{Branding.appName}</Text>
           <Text style={styles.description}>{Branding.appDescription}</Text>
         </View>
@@ -58,9 +68,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
   },
-  artworkContainer: {
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
+  illustration: {
+    marginBottom: Spacing.xl,
   },
   appName: {
     fontFamily: FontFamily.bold,

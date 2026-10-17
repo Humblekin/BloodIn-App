@@ -1,3 +1,673 @@
+# BLOODIN — MASTER MOBILE APP REDESIGN PROMPT
+
+## Exact Reference Matching • Premium UI/UX • Expo • React Native • Supabase
+
+## 1. YOUR ROLE AND OBJECTIVE
+
+Act as a senior React Native and Expo engineer, mobile UI/UX designer, application architect, and security-conscious software developer.
+
+Your task is to redesign my existing BloodIn mobile application to look as close as possible to the three mobile screens shown in my supplied reference screenshot.
+
+The reference contains:
+
+1. A blood donation home screen.
+2. A messaging conversation screen.
+3. A donation information or coordination screen.
+
+I want the actual mobile application to reproduce the visual composition of these screens, including their layouts, spacing, colors, image placement, cards, typography, buttons, navigation, and proportions.
+
+**This is an implementation task, not an image-generation task.** Do not generate a new mockup instead of modifying my app. Do not embed the reference screenshot as the application interface. Build real, interactive React Native screens.
+
+The final result should feel like a professionally designed blood donation and coordination application, not a generic template or an AI-generated interface.
+
+Most importantly, preserve the existing BloodIn application, authentication, navigation, Supabase integrations, and working features.
+
+---
+
+## 2. FIRST: INSPECT THE EXISTING PROJECT
+
+Before modifying any code:
+
+1. Inspect the project directory and package.json.
+2. Identify the installed Expo SDK and React Native versions.
+3. Inspect the existing folder structure, navigation system, screens, reusable components, styles, and assets.
+4. Identify all existing screens and their responsibilities.
+5. Inspect Supabase initialization, authentication, database queries, storage, and Realtime integrations.
+6. Identify the current home screen, messaging screen, donation-related screens, profile, onboarding, and other existing pages.
+7. Check the current Git status and preserve unrelated user changes.
+8. Locate and inspect the supplied design reference. If the screenshot is available as an attachment, use it directly. If a local copy is available, inspect that file.
+9. Identify broken features and known issues without assuming that every existing implementation is correct.
+10. Read the project's existing documentation before making changes.
+
+Do not rebuild the application from scratch merely because a different structure would be convenient.
+
+Do not remove existing features without a documented, justified reason.
+
+Before implementing the redesign, create or update the required project documentation.
+
+---
+
+## 3. STRICT VISUAL FIDELITY REQUIREMENT
+
+**The supplied three-screen BloodIn screenshot is the visual specification, not merely an inspiration image.**
+
+Do not independently redesign the screens into a different layout. Do not settle for a generic red-and-white healthcare interface.
+
+Reproduce the reference as closely as practical.
+
+### Before coding
+
+Study the reference image and produce a screen-by-screen visual specification covering:
+
+- Overall screen composition.
+- Header height and positioning.
+- Horizontal and vertical margins.
+- Component dimensions and relative proportions.
+- Background colors.
+- Image dimensions and cropping.
+- Card placement.
+- Border radii.
+- Typography sizes, weights, and hierarchy.
+- Icon sizes and alignment.
+- Button dimensions.
+- Input heights.
+- Bottom navigation placement.
+- Spacing between sections.
+- The relationship between the red background areas and white content panels.
+
+Use the screenshot's actual proportions as the starting point. Do not choose arbitrary dimensions without comparing them against the reference.
+
+Where precise measurements cannot be recovered from the screenshot, estimate them consistently and refine them through screenshot comparison.
+
+### During implementation
+
+Build the actual screens using real React Native components and responsive styling.
+
+Use the existing project's styling system if it is suitable. Otherwise, use `StyleSheet.create()` and a shared design system.
+
+Do not assume that ordinary browser CSS can be used directly in React Native.
+
+Do not use fixed absolute positioning for entire layouts when Flexbox and responsive sizing are more appropriate.
+
+Use absolute positioning only for elements that genuinely require it, such as image overlays or floating controls.
+
+### After implementation
+
+You MUST run the application and inspect the actual rendered screens.
+
+1. Capture a screenshot of the implemented home screen.
+2. Capture a screenshot of the implemented messaging screen.
+3. Capture a screenshot of the implemented donation or coordination screen.
+4. Compare each screenshot against the corresponding reference screen at matching viewport dimensions.
+5. Identify visible differences in spacing, sizing, alignment, colors, typography, image cropping, and component placement.
+6. Correct those differences in the actual source code.
+7. Capture and compare the screens again.
+8. Repeat until the result is visually close to the reference or a genuine technical limitation prevents further progress.
+
+Use available Expo, emulator, device, or browser-based tooling appropriate to the existing project.
+
+Do not claim that screenshot comparison has occurred if it has not.
+
+If screenshot capture or automated comparison is unavailable, explain exactly what could not be verified and complete the strongest visual review possible.
+
+**Visual similarity must be evaluated using the running application, not just by reading the source code.**
+
+---
+
+## 4. DESIGN SYSTEM
+
+Create a consistent design system that reproduces the reference's bright red-and-white visual identity.
+
+Use these initial color values:
+
+- Primary red: `#F20D19`
+- Deep red: `#D90B16`
+- Pale red: `#FCE8EA`
+- White: `#FFFFFF`
+- Primary text: `#202124`
+- Secondary text: `#70757A`
+- Light background: `#F7F7F8`
+- Border: `#E8E8EB`
+- Success: `#16834A`
+
+Treat these values as starting points. Compare them with the reference and adjust them when necessary.
+
+Define reusable tokens for:
+
+- Colors.
+- Typography.
+- Font sizes and weights.
+- Spacing.
+- Corner radii.
+- Shadows.
+- Icon sizes.
+- Button heights.
+- Input heights.
+- Screen margins.
+- Card padding.
+- Navigation dimensions.
+
+Build reusable components that fit the existing architecture, such as:
+
+- `ScreenContainer`
+- `PrimaryButton`
+- `SecondaryButton`
+- `SearchBar`
+- `SectionHeader`
+- `IconCircle`
+- `BloodGroupBadge`
+- `DonorCard`
+- `BloodRequestCard`
+- `ChatBubble`
+- `MessageComposer`
+- `LoadingState`
+- `EmptyState`
+- `ErrorState`
+- `BottomNavigation`
+
+Do not create duplicate components that already exist and work correctly.
+
+Keep the interface consistent across screens without forcing every screen into an identical layout.
+
+---
+
+## 5. SCREEN ONE: HOME SCREEN
+
+Recreate the first phone in the supplied reference as closely as possible.
+
+### A. Red header
+
+Create the compact red header with:
+
+- User avatar.
+- Personalized greeting.
+- Short welcome text.
+- Notification control.
+- Appropriate quick-action control.
+
+Match the reference's header proportions and positioning.
+
+Use the authenticated user's real profile information. Provide a graceful fallback when a profile is unavailable.
+
+Connect every interactive control to its actual feature.
+
+### B. Donation hero card
+
+Reproduce the large donation card beneath the greeting.
+
+Include:
+
+- A concise donation-focused headline.
+- A high-quality blood donation photograph.
+- A carefully cropped image with rounded corners.
+- Supporting text if it fits the reference composition.
+
+The image should occupy approximately the same proportion of the card as in the screenshot.
+
+Use a real, legally usable image asset. Prefer a local optimized image over an unreliable remote image URL.
+
+If the correct image is unavailable, use a suitable replaceable asset and document it. Do not invent an asset path or pretend a placeholder is an authentic BloodIn photograph.
+
+### C. Search bar
+
+Recreate the pill-shaped search control with:
+
+- Search icon.
+- Short placeholder.
+- Search input behavior.
+- Filter button.
+
+Use the existing BloodIn search and discovery functionality.
+
+Search must work with actual application data. Do not replace it with decorative UI or hardcoded results.
+
+### D. Quick-action grid
+
+Create four compact action cards, following the reference's two-column arrangement:
+
+- Find Donors.
+- Request Blood.
+- Blood Orders or Coordination.
+- Ambulances, only if the application actually supports this feature.
+
+Use appropriate icons inside pale-red circular or rounded backgrounds.
+
+Match the cards' proportions, gaps, padding, and typography to the screenshot.
+
+Connect every card to its correct existing screen or workflow.
+
+If an ambulance feature does not exist, do not invent emergency dispatch functionality. Replace it with a real existing feature or a clearly justified blood-coordination action.
+
+### E. Emergency blood section
+
+Create the emergency blood section with:
+
+- Section heading.
+- A View All action when appropriate.
+- A prominent image-based card.
+- A short title and supporting information.
+- A suitable action.
+
+Use real BloodIn records wherever available.
+
+Handle loading, empty results, failed requests, and offline conditions.
+
+Never fabricate an emergency request, donor availability, hospital partnership, or blood stock level.
+
+### F. Bottom navigation
+
+Reproduce the reference's compact white bottom navigation bar.
+
+Use the existing navigation system and destinations. Where appropriate, include:
+
+- Home.
+- Messages.
+- Search or Discover.
+- Profile.
+-
+
+Highlight the active destination using a red pill-shaped background with a white icon and label.
+
+Keep inactive destinations subtle, with gray icons.
+
+Respect device safe areas and ensure the navigation does not cover screen content.
+
+Do not create a second navigation architecture.
+
+---
+
+## 6. SCREEN TWO: MESSAGING
+
+Recreate the second phone in the supplied reference.
+
+### Header
+
+Include:
+
+- Back navigation.
+- Contact avatar.
+- Contact name.
+- Online or last-seen status only when supported by real data.
+- Call or voice controls only when the corresponding feature exists.
+
+Match the compact spacing and clean appearance of the reference.
+
+### Conversation
+
+Implement the message list with:
+
+- White background.
+- Centered date separators.
+- Incoming messages in light-gray bubbles.
+- Outgoing messages in vivid red bubbles with white text.
+- Subtle timestamps.
+- Appropriate horizontal alignment.
+- Consistent spacing.
+- Readable message widths.
+- Delivery indicators only if supported.
+
+Preserve existing message records, Supabase Realtime subscriptions, ordering, pagination, and authorization.
+
+Do not insert fake conversations into production data.
+
+### Message composer
+
+Create a rounded composer at the bottom with:
+
+- Text input.
+- Send action.
+- Attachment controls only if supported.
+- Voice recording only if implemented and properly permissioned.
+
+Ensure the keyboard does not cover the composer.
+
+Handle message submission, failed delivery, loading, empty conversations, and network interruptions.
+
+Prevent accidental duplicate submissions.
+
+Verify that users cannot access conversations they are not authorized to view.
+
+---
+
+## 7. SCREEN THREE: DONATION OR COORDINATION DETAILS
+
+Recreate the third phone in the reference, adapting its content to the real BloodIn feature.
+
+### Upper section
+
+- Bright red background.
+- Compact top navigation.
+- Large donation photograph.
+- Rounded or arched image treatment similar to the reference.
+- Carefully controlled image cropping.
+- Carousel indicators only if multiple images are available.
+
+### White information panel
+
+Create a prominent white panel that overlaps or follows the red section, matching the reference's composition.
+
+Include relevant information such as:
+
+- Blood group.
+- Request or coordination details.
+- Useful statistics, only when supported by real data.
+- Short explanatory text.
+- A prominent action button.
+
+Use an actual action such as contacting a requester, responding to a request, or viewing coordination details, depending on the existing screen's purpose.
+
+Do not imply that BloodIn performs medical procedures or guarantees blood availability.
+
+Make the layout responsive. Do not use brittle absolute coordinates that cause overlap on different devices.
+
+---
+
+## 8. REDESIGN ALL OTHER EXISTING SCREENS
+
+Apply the same visual system throughout the existing app.
+
+Inspect and improve:
+
+- Login.
+- Registration.
+- Onboarding.
+- User profile.
+- Account settings.
+- Donor discovery.
+- Blood requests.
+- Nearby-user discovery.
+- Chat list.
+- Chat conversation.
+- Notifications.
+- Request details.
+- User details.
+- Other existing screens.
+
+Do not stop after redesigning the three reference screens.
+
+Maintain a coherent design system while adapting each page to its actual purpose.
+
+Improve typography, spacing, forms, card layouts, loading indicators, error states, and touch interactions.
+
+Do not remove a working feature merely because it does not appear in the reference screenshot.
+
+---
+
+## 9. IMAGE ASSETS
+
+Inspect the existing assets before sourcing replacements.
+
+Use high-quality, appropriate, legally usable blood donation imagery.
+
+Prefer optimized local assets for reliability and consistent rendering.
+
+If an asset is missing:
+
+1. Identify the exact image required.
+2. Use a suitable image from a permitted source if available.
+3. Add it to the correct assets directory.
+4. Optimize it for mobile rendering.
+5. Use appropriate cropping and scaling.
+6. Provide a fallback for loading failures.
+
+Never reference nonexistent image files.
+
+Never embed enormous base64 images directly into component source code.
+
+Do not use emojis as replacements for the reference's icons.
+
+Use the existing icon library if suitable. Before installing another package, verify compatibility with the installed Expo SDK.
+
+The visual assets are part of the design specification. Unrelated placeholder images are not an acceptable final result when matching imagery is available.
+
+---
+
+## 10. ANIMATIONS AND MICRO-INTERACTIONS
+
+Implement subtle, premium interactions:
+
+- Smooth screen transitions.
+- Gentle card entrance effects.
+- Button press feedback.
+- Search focus states.
+- Elegant modal transitions.
+- Loading skeletons.
+- Subtle navigation animations.
+- Appropriate image transitions.
+
+Keep animations lightweight and smooth on ordinary Android devices.
+
+Reuse existing supported libraries where possible.
+
+Avoid excessive animation dependencies, unnecessary motion, and decorative delays that interfere with real tasks.
+
+Support reduced-motion preferences where practical.
+
+---
+
+## 11. PRESERVE ALL EXISTING BLOODIN FUNCTIONALITY
+
+This is a UI redesign, not permission to replace the backend.
+
+Do not:
+
+- Replace the Supabase project.
+- Recreate the database from scratch.
+- Rename database tables unnecessarily.
+- Remove working authentication.
+- Break existing routes.
+- Break nearby-user discovery.
+- Remove location functionality.
+- Break blood-group filtering.
+- Break messaging or Realtime.
+- Replace real database operations with mock data.
+- Change user identity assumptions.
+- Disable Row Level Security.
+- Weaken database policies to make the interface appear functional.
+- Remove working functionality silently.
+
+Before changing a component, inspect its existing responsibilities and integrations.
+
+If a feature is already broken, identify the issue and document it. Make changes only after understanding the cause.
+
+Avoid unrelated backend refactoring.
+
+---
+
+## 12. SECURITY AND PRIVACY
+
+BloodIn handles personal information, location-related data, and private messages.
+
+Preserve the existing security architecture.
+
+- Never expose Supabase service-role keys in the mobile application.
+- Never place private credentials in `EXPO_PUBLIC_*` variables.
+- Keep public configuration separate from secrets.
+- Preserve and verify Row Level Security.
+- Protect private messages and user-owned records.
+- Enforce authorization in trusted backend operations and database policies.
+- Never trust a user ID supplied by the client as proof of identity.
+- Request location permissions appropriately.
+- Avoid exposing precise locations unnecessarily.
+- Do not log sensitive personal information.
+- Do not add unnecessary permissions.
+- Do not weaken security to make a UI feature work.
+
+A visually attractive application must remain secure.
+
+---
+
+## 13. RESPONSIVENESS AND ACCESSIBILITY
+
+Test different screen sizes and supported platforms.
+
+The app must handle:
+
+- Android and iOS where supported.
+- Safe-area insets.
+- Different screen widths and heights.
+- Keyboard visibility.
+- Long names and messages.
+- Empty lists.
+- Missing images.
+- Slow networks.
+- Loading and error states.
+- Accessible font scaling.
+- Screen-reader labels.
+- Appropriate touch targets.
+
+Avoid clipped text, horizontal overflow, overlapping cards, and bottom navigation hidden behind system UI.
+
+Do not optimize only for one device screenshot.
+
+---
+
+## 14. IMPLEMENTATION AND VERIFICATION WORKFLOW
+
+### Stage 1 — Audit
+
+Inspect the existing app, locate the screenshot, map the existing features, and document the implementation plan.
+
+### Stage 2 — Design system
+
+Implement the shared colors, typography, spacing, buttons, cards, icon treatment, and navigation styling.
+
+### Stage 3 — Home screen
+
+Implement the first reference screen and verify its real functionality.
+
+### Stage 4 — Messaging
+
+Implement the second reference screen and verify sending, receiving, authorization, and keyboard behavior.
+
+### Stage 5 — Donation details
+
+Implement the third reference screen and verify its real actions.
+
+### Stage 6 — Remaining screens
+
+Apply the new design system to the other existing pages without removing their functionality.
+
+### Stage 7 — Screenshot comparison
+
+Run the application and capture actual screenshots.
+
+Compare the rendered home, messaging, and donation screens against the reference at matching viewport dimensions.
+
+Identify and correct differences in:
+
+- Layout proportions.
+- Header dimensions.
+- Horizontal and vertical spacing.
+- Card sizes.
+- Image cropping.
+- Colors.
+- Typography.
+- Button shapes.
+- Icon alignment.
+- Bottom navigation.
+
+Repeat the capture-and-correction cycle.
+
+If tools are available for visual overlays or image-difference analysis, use them to identify discrepancies. Do not make unsupported claims about pixel-level accuracy.
+
+### Stage 8 — Regression testing
+
+Verify that authentication, navigation, messaging, discovery, location, requests, profiles, and Supabase integrations continue to work.
+
+Run the relevant tests and production or Expo-compatible build checks available in the project.
+
+Fix issues introduced by the redesign.
+
+### Stage 9 — Final review
+
+Inspect the actual screens and confirm that the result is visually close to the reference.
+
+Record any remaining limitations honestly.
+
+---
+
+## 15. PROJECT DOCUMENTATION AND SESSION RECOVERY
+
+Create or update these files at the project root if they do not already exist:
+
+### PLANNING.md
+
+Document the design reference, screen specifications, architecture, reusable components, milestones, and implementation decisions.
+
+### RULES.md
+
+Document coding conventions, visual fidelity requirements, security rules, and functionality-preservation requirements.
+
+### TASKS.md
+
+Track:
+
+- Completed screens.
+- Screens in progress.
+- Remaining work.
+- Components created or modified.
+- Existing features verified.
+- Tests performed and actual results.
+- Known bugs.
+- Visual differences that remain.
+- Exact next task.
+
+### README.md
+
+Document project setup, dependencies, running the app, testing, and relevant configuration.
+
+### CHANGELOG.md
+
+Record meaningful changes by milestone.
+
+At the start of every new session, read RULES.md, PLANNING.md, and TASKS.md, then inspect the actual source code to verify the recorded progress.
+
+At the end of each session, update TASKS.md so work can continue without repeating completed tasks.
+
+Never trust the progress notes blindly when the code contradicts them.
+
+---
+
+## 16. DEFINITION OF DONE
+
+The redesign is complete only when:
+
+1. The home screen closely matches the first reference phone.
+2. The messaging screen closely matches the second reference phone.
+3. The donation or coordination screen closely matches the third reference phone.
+4. The red-and-white design system is consistent throughout the app.
+5. The main image placement, component proportions, spacing, typography, cards, buttons, and navigation resemble the supplied screenshot.
+6. The remaining existing screens have been visually improved.
+7. All existing working features remain functional.
+8. Supabase authentication, messaging, discovery, and relevant database operations continue to work.
+9. Real user data is used where required instead of fake production content.
+10. Mobile layouts and keyboard behavior have been checked.
+11. No secrets have been exposed.
+12. No security protections have been weakened.
+13. Relevant tests and build checks have been run successfully, or failures have been documented.
+14. Actual screenshots have been compared against the reference when the required tooling is available.
+15. PLANNING.md, RULES.md, TASKS.md, README.md, and CHANGELOG.md accurately reflect the implementation.
+
+Do not claim pixel-perfect similarity or complete security without sufficient verification.
+
+---
+
+## 17. START NOW
+
+Begin by inspecting the existing BloodIn repository and locating the supplied screenshot.
+
+Report a concise initial assessment, create or update the required documentation, and then implement the redesign directly in the existing application.
+
+Work in manageable stages. Do not stop after producing a plan.
+
+Prioritize the home screen, messaging screen, and donation details screen, then improve the remaining existing screens.
+
+Run the app, capture screenshots, compare the actual layouts with the reference, and correct visible differences.
+
+Preserve the existing application architecture and functionality wherever possible.
+
+**Final objective: transform the existing BloodIn application into a polished, responsive, professional mobile app that closely reproduces the supplied three-screen design, with real working functionality and no unnecessary regressions.**
 The MIT License (MIT)
 
 Copyright (c) 2015-present 650 Industries, Inc. (aka Expo)

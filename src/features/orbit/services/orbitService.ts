@@ -5,24 +5,9 @@
 // Geographic ordering model:
 //   Nearest eligible users first, farthest eligible users on outer rings.
 //   Inner ring = closest physical proximity, middle = intermediate, outer = broader perimeter.
-import { locationService } from '../../location/services/locationService';
+import { locationService, type NearbyUserResult } from '../../location/services/locationService';
 import { supabase } from '@/lib/supabase/client';
 import type { OrbitNode } from '../components/OrbitCanvas';
-
-export interface NearbyUserResult {
-  user_id: string;
-  display_name: string;
-  avatar_url: string | null;
-  blood_group: string | null;
-  city_name: string | null;
-  region_name: string | null;
-  country_name: string | null;
-  approximate_distance_km: number;
-  is_available: boolean;
-  is_connected: boolean;
-  is_premium: boolean;
-  donation_willingness?: 'willing' | 'not_willing' | 'unspecified';
-}
 
 export const orbitService = {
   async getNearbyNodes(options?: {
@@ -40,15 +25,7 @@ export const orbitService = {
       throw new Error('LOCATION_REQUIRED');
     }
 
-    let users: any[] = [];
-    try {
-      users = (await locationService.findNearbyUsers(options)) || [];
-    } catch (err) {
-      console.warn('[Orbit] findNearbyUsers failed:', err);
-      users = [];
-    }
-
-    const rows = users as unknown as NearbyUserResult[];
+    const rows = await locationService.findNearbyUsers(options);
 
     // Filter out any records with invalid or missing coordinates/distances
     const validRows = rows.filter(

@@ -2,7 +2,7 @@
 // Radar-style visualization of the user's nearby network (real profiles from
 // find_nearby_users). Tapping a node opens a LinkedIn-style profile sheet.
 import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, { useSharedValue, withRepeat, withTiming, Easing, useAnimatedStyle } from 'react-native-reanimated';
@@ -60,11 +60,11 @@ export default function OrbitScreen() {
       setNodes(nearby);
       setLocationRequired(false);
     } catch (err: any) {
-      console.warn('[Orbit] Failed to load network:', err);
       setNodes([]);
       if (err instanceof Error && err.message === 'LOCATION_REQUIRED') {
         setLocationRequired(true);
       } else {
+        console.warn('[Orbit] Failed to load network:', err);
         setError('Could not load your network right now.');
       }
     } finally {
@@ -91,13 +91,24 @@ export default function OrbitScreen() {
         setLocationRequired(false);
         await loadNetwork(willingOnly);
       } else {
-        Alert.alert(
-          'Location Needed',
-          res.error || 'Please grant location permission to view nearby members on Orbit.'
-        );
+        const message = res.error || 'Please grant location permission to view nearby members on Orbit.';
+        const buttons = Platform.OS !== 'web' && message.includes('Settings')
+          ? [
+              { text: 'Cancel', style: 'cancel' as const },
+              { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+            ]
+          : undefined;
+        Alert.alert('Location Needed', message, buttons);
       }
     } catch (err: any) {
-      Alert.alert('Location Error', err?.message || 'Could not acquire your current location.');
+      const message = err?.message || 'Could not acquire your current location.';
+      const buttons = Platform.OS !== 'web' && message.includes('Settings')
+        ? [
+            { text: 'Cancel', style: 'cancel' as const },
+            { text: 'Open Settings', onPress: () => { void Linking.openSettings(); } },
+          ]
+        : undefined;
+      Alert.alert('Location Error', message, buttons);
     } finally {
       setLocating(false);
     }

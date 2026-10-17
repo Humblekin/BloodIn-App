@@ -2,13 +2,11 @@
 // Senior-quality landing surface: greeting + donor status, quick actions,
 // and a live feed of active blood requests near the user.
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, ActivityIndicator, Image, ImageBackground, TextInput } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { Droplet, PlusCircle, MessageCircle, Bell, ChevronRight, MapPin, Clock, Newspaper, Search, Heart, MessageSquare } from 'lucide-react-native';
+import { Droplet, PlusCircle, MessageCircle, Bell, ChevronRight, MapPin, Clock, Search, Heart, MessageSquare, SlidersHorizontal } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
-import { Header } from '@/components/layout/Header';
 import { Avatar } from '@/components/ui/Avatar';
-import { BloodInLogo } from '@/components/ui/Logo';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -20,6 +18,7 @@ import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize, LineHeight } from '@/constants/typography';
 import { BorderRadius, Spacing, Shadows } from '@/constants/spacing';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface QuickAction {
   key: string;
@@ -32,12 +31,14 @@ interface QuickAction {
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { profile, user, updateProfile } = useAuthStore();
   const [available, setAvailable] = useState<boolean>(profile?.is_available ?? true);
   const [requests, setRequests] = useState<BloodRequestRow[]>([]);
   const [recentPosts, setRecentPosts] = useState<PostRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadRequests = useCallback(async () => {
     try {
@@ -65,41 +66,40 @@ export default function HomeScreen() {
 
   const quickActions: QuickAction[] = [
     {
+      key: 'discover',
+      label: 'Find Donors',
+      caption: 'Search nearby people',
+      icon: <Search size={19} color={Colors.primary.DEFAULT} />,
+      tint: Colors.primary.subtle,
+      onPress: () => router.push('/(main)/(tabs)/discover'),
+    },
+    {
       key: 'request',
       label: 'Request Blood',
       caption: 'Post an urgent need',
-      icon: <PlusCircle size={24} color={Colors.white} />,
-      tint: Colors.semantic.critical.DEFAULT,
+      icon: <PlusCircle size={19} color={Colors.primary.DEFAULT} />,
+      tint: Colors.primary.subtle,
       onPress: () => router.push('/(main)/requests/create'),
     },
     {
       key: 'post',
-      label: 'New Post',
-      caption: 'Share with your network',
-      icon: <Newspaper size={24} color={Colors.white} />,
-      tint: Colors.primary.DEFAULT,
-      onPress: () => router.push('/(main)/posts/create'),
-    },
-    {
-      key: 'discover',
-      label: 'Find People',
-      caption: 'Grow your network',
-      icon: <Search size={24} color={Colors.white} />,
-      tint: Colors.verification.community,
-      onPress: () => router.push('/(main)/(tabs)/discover'),
+      label: 'Blood Orders',
+      caption: 'View open requests',
+      icon: <Droplet size={19} color={Colors.primary.DEFAULT} />,
+      tint: Colors.primary.subtle,
+      onPress: () => router.push('/(main)/(tabs)/requests'),
     },
     {
       key: 'messages',
       label: 'Messages',
-      caption: 'Your inbox',
-      icon: <MessageCircle size={24} color={Colors.white} />,
-      tint: Colors.verification.identity,
-      onPress: () => router.push('/(main)/messages'),
+      caption: 'Coordinate with people',
+      icon: <MessageCircle size={19} color={Colors.primary.DEFAULT} />,
+      tint: Colors.primary.subtle,
+      onPress: () => router.push('/(main)/(tabs)/messages'),
     },
   ];
 
   const firstName = profile?.display_name?.split(' ')[0] || 'there';
-  const today = new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
 
   const handleAvailabilityToggle = async (value: boolean) => {
     setAvailable(value);
@@ -110,88 +110,102 @@ export default function HomeScreen() {
     }
   };
 
+  const openDiscover = () => {
+    const query = searchQuery.trim();
+    router.push(query
+      ? `/(main)/(tabs)/discover?search=${encodeURIComponent(query)}`
+      : '/(main)/(tabs)/discover');
+  };
+
   return (
-    <View style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}>
-      <Header
-        title="BloodIn"
-        rightElement={
-          <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/profile')} activeOpacity={0.8}>
-            <Avatar
-              name={profile?.display_name || user?.email || 'User'}
-              url={profile?.avatar_url}
-              size="md"
-              showBorder
-            />
-          </TouchableOpacity>
-        }
-      />
-
-      <Screen scrollable padding keyboardAvoiding={false}>
-        {/* Hero greeting */}
-        <View style={styles.heroRow}>
-          <View style={styles.heroLeft}>
-            <BloodInLogo size={56} />
-            <View style={styles.heroText}>
-              <Text style={styles.eyebrow}>{today}</Text>
-              <Text style={styles.greeting}>Hello, {firstName}</Text>
+    <View style={styles.homeRoot}>
+      <Screen
+        scrollable
+        padding={false}
+        safeArea={false}
+        keyboardAvoiding={false}
+        backgroundColor={Colors.primary.DEFAULT}
+        contentContainerStyle={styles.homeScrollContent}
+      >
+        <View style={[styles.redPanel, { paddingTop: insets.top + Spacing.sm }]}>
+          <View style={styles.greetingRow}>
+            <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/profile')} activeOpacity={0.8}>
+              <Avatar name={profile?.display_name || user?.email || 'User'} url={profile?.avatar_url} size="sm" showBorder />
+            </TouchableOpacity>
+            <View style={styles.greetingCopy}>
+              <Text style={styles.greeting}>Hi, {firstName}</Text>
+              <Text style={styles.welcomeText} numberOfLines={1}>
+                {profile?.blood_group ? `Welcome to BloodIn · ${profile.blood_group}` : 'Welcome to BloodIn'}
+              </Text>
             </View>
-          </View>
-
-          <View style={styles.heroRight}>
             <TouchableOpacity
-              style={styles.notificationButton}
+              style={styles.headerAction}
               onPress={() => router.push('/(main)/notifications')}
               activeOpacity={0.8}
+              accessibilityLabel="Notifications"
             >
-              <Bell size={20} color={Colors.dark.DEFAULT} />
-              <View style={styles.notificationDot} />
+              <Bell size={17} color={Colors.primary.DEFAULT} />
             </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerAction}
+              onPress={() => router.push('/(main)/(tabs)/messages')}
+              activeOpacity={0.8}
+              accessibilityLabel="Messages"
+            >
+              <MessageCircle size={17} color={Colors.primary.DEFAULT} />
+            </TouchableOpacity>
+          </View>
 
-            <View style={styles.impactCard}>
-              <View style={styles.impactItem}>
-                <Text style={styles.impactNumber}>{requests.length}</Text>
-                <Text style={styles.impactLabel}>Active requests</Text>
-              </View>
-              <View style={styles.impactDivider} />
-              <View style={styles.impactItem}>
-                <Text style={styles.impactNumber}>{recentPosts.length}</Text>
-                <Text style={styles.impactLabel}>Recent posts</Text>
-              </View>
+          <TouchableOpacity style={styles.donationHero} onPress={openDiscover} activeOpacity={0.92}>
+            <Text style={styles.donationHeadline}>Donate Blood{ '\n' }Save Life</Text>
+            <Image
+              source={require('../../../../assets/images/blood_donation_hero.jpg')}
+              style={styles.donationImage}
+              resizeMode="cover"
+              accessibilityLabel="A donor giving blood"
+            />
+          </TouchableOpacity>
+
+          <View style={styles.searchRow}>
+            <View style={styles.searchField}>
+              <Search size={16} color={Colors.dark.tertiary} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search nearby"
+                placeholderTextColor={Colors.dark.tertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                onSubmitEditing={openDiscover}
+                returnKeyType="search"
+                accessibilityLabel="Search donors and community"
+                underlineColorAndroid="transparent"
+              />
+              <TouchableOpacity
+                style={styles.searchSubmit}
+                onPress={openDiscover}
+                activeOpacity={0.75}
+                hitSlop={4}
+                accessibilityRole="button"
+                accessibilityLabel="Search"
+              >
+                <Search size={16} color={Colors.primary.DEFAULT} />
+              </TouchableOpacity>
             </View>
+            <TouchableOpacity
+              style={styles.filterButton}
+              onPress={openDiscover}
+              activeOpacity={0.8}
+              accessibilityLabel="Open discovery filters"
+            >
+              <SlidersHorizontal size={17} color={Colors.primary.DEFAULT} />
+            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Donor status card */}
-        <Card variant="elevated" style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            <View style={styles.bloodPill}>
-              <Droplet size={18} color={Colors.primary.DEFAULT} />
-              <Text style={styles.bloodPillText}>{profile?.blood_group || 'Set blood type'}</Text>
-            </View>
-            <View style={styles.availability}>
-              <Text style={styles.availabilityLabel}>
-                {available ? 'Available to help' : 'Unavailable'}
-              </Text>
-              <Switch
-                value={available}
-                onValueChange={handleAvailabilityToggle}
-                trackColor={{ true: Colors.semantic.success.DEFAULT, false: Colors.border.dark }}
-              />
-            </View>
-          </View>
-          <View style={styles.verificationRow}>
-            {profile?.human_verified ? (
-              <Badge label="Verified" variant="success" leftIcon={<Droplet size={12} color={Colors.semantic.success.dark} />} />
-            ) : null}
-            {profile?.identity_verified ? (
-              <Badge label="Identity confirmed" variant="info" />
-            ) : null}
-          </View>
-        </Card>
+        <View style={styles.bodyContent}>
 
         {/* Quick actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.quickGrid}>
             {quickActions.map((action) => (
               <TouchableOpacity
@@ -210,26 +224,9 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Latest from your network */}
-        {recentPosts.length > 0 && (
-          <View style={styles.section}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Latest from Your Network</Text>
-              <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/feed')} style={styles.seeAll}>
-                <Text style={styles.seeAllText}>See feed</Text>
-                <ChevronRight size={16} color={Colors.primary.DEFAULT} />
-              </TouchableOpacity>
-            </View>
-            {recentPosts.map((post) => (
-              <CompactPostCard key={post.id} post={post} />
-            ))}
-          </View>
-        )}
-
-        {/* Active requests */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Active Requests</Text>
+            <Text style={styles.sectionTitle}>Emergency Blood</Text>
             <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/requests')} style={styles.seeAll}>
               <Text style={styles.seeAllText}>See all</Text>
               <ChevronRight size={16} color={Colors.primary.DEFAULT} />
@@ -261,11 +258,65 @@ export default function HomeScreen() {
             </Card>
           ) : (
             <View>
-              {requests.map((request) => (
-                <CompactRequestCard key={request.id} request={request} />
+              {requests.slice(0, 1).map((request) => (
+                <TouchableOpacity
+                  key={request.id}
+                  style={styles.emergencyCard}
+                  onPress={() => router.push(`/(main)/requests/${request.id}`)}
+                  activeOpacity={0.85}
+                >
+                  <ImageBackground
+                    source={require('../../../../assets/images/blood_donation_care.jpg')}
+                    style={styles.emergencyImage}
+                    imageStyle={styles.emergencyImageStyle}
+                  >
+                    <View style={styles.emergencyScrim}>
+                      <View style={styles.emergencyTitleRow}>
+                        <Text style={styles.emergencyTitle} numberOfLines={1}>
+                          {request.hospital_name || request.patient_name || 'Blood request'}
+                        </Text>
+                        <UrgencyBadge level={request.urgency_level} />
+                      </View>
+                      <Text style={styles.emergencyDetail} numberOfLines={1}>
+                        {request.blood_group} · {request.units_required} units needed
+                      </Text>
+                    </View>
+                  </ImageBackground>
+                </TouchableOpacity>
               ))}
             </View>
           )}
+        </View>
+
+        <View style={styles.availabilityStrip}>
+          <View style={styles.availabilityCopy}>
+            <Text style={styles.availabilityTitle}>{available ? 'Available to donate' : 'Not available'}</Text>
+            <Text style={styles.availabilityDetail}>
+              {profile?.human_verified ? 'Verified donor' : 'Manage your donor availability'}
+            </Text>
+          </View>
+          <Switch
+            value={available}
+            onValueChange={handleAvailabilityToggle}
+            trackColor={{ true: Colors.semantic.success.DEFAULT, false: Colors.border.dark }}
+          />
+        </View>
+
+        {/* Latest from your network */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Latest from Your Network</Text>
+            <TouchableOpacity onPress={() => router.push('/(main)/(tabs)/feed')} style={styles.seeAll}>
+              <Text style={styles.seeAllText}>See feed</Text>
+              <ChevronRight size={16} color={Colors.primary.DEFAULT} />
+            </TouchableOpacity>
+          </View>
+          {recentPosts.length > 0 ? recentPosts.map((post) => (
+            <CompactPostCard key={post.id} post={post} />
+          )) : (
+            <Text style={styles.stateText}>No recent community posts.</Text>
+          )}
+        </View>
         </View>
       </Screen>
     </View>
@@ -368,6 +419,170 @@ function CompactPostCard({ post }: { post: PostRow }) {
 }
 
 const styles = StyleSheet.create({
+    homeRoot: {
+      flex: 1,
+      backgroundColor: Colors.background.DEFAULT,
+    },
+    homeScrollContent: {
+      paddingBottom: Spacing.sm,
+    },
+    redPanel: {
+      backgroundColor: Colors.primary.DEFAULT,
+      paddingHorizontal: Spacing.md,
+      paddingBottom: Spacing.md,
+    },
+    greetingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      marginBottom: Spacing.md,
+    },
+    greetingCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    welcomeText: {
+      color: 'rgba(255,255,255,0.84)',
+      fontFamily: FontFamily.regular,
+      fontSize: 10,
+      marginTop: 2,
+    },
+    headerAction: {
+      width: 32,
+      height: 32,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.white,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    donationHero: {
+      height: 174,
+      backgroundColor: Colors.white,
+      borderRadius: 14,
+      overflow: 'hidden',
+      marginBottom: Spacing.sm,
+      paddingTop: Spacing.sm,
+    },
+    donationHeadline: {
+      color: Colors.dark.DEFAULT,
+      fontFamily: FontFamily.semibold,
+      fontSize: FontSize.md,
+      lineHeight: 19,
+      paddingHorizontal: Spacing.md,
+      paddingBottom: Spacing.xs,
+    },
+    donationImage: {
+      width: '100%',
+      height: 128,
+    },
+    searchRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    searchField: {
+      flex: 1,
+      height: 46,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingLeft: Spacing.md,
+      paddingRight: Spacing.xs,
+      borderRadius: BorderRadius.full,
+      borderWidth: 1,
+      borderColor: Colors.primary.subtle,
+      backgroundColor: Colors.white,
+    },
+    searchInput: {
+      flex: 1,
+      minWidth: 0,
+      paddingVertical: 0,
+      color: Colors.dark.DEFAULT,
+      fontFamily: FontFamily.regular,
+      fontSize: FontSize.sm,
+    },
+    searchSubmit: {
+      width: 34,
+      height: 34,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.primary.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    filterButton: {
+      width: 46,
+      height: 46,
+      borderRadius: BorderRadius.full,
+      backgroundColor: Colors.white,
+      borderWidth: 1,
+      borderColor: Colors.primary.subtle,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bodyContent: {
+      flex: 1,
+      backgroundColor: '#F5F5F6',
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+    },
+    availabilityStrip: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      backgroundColor: Colors.white,
+      borderRadius: BorderRadius.md,
+      paddingHorizontal: Spacing.md,
+      marginBottom: Spacing.md,
+    },
+    availabilityCopy: {
+      flex: 1,
+    },
+    availabilityTitle: {
+      color: Colors.dark.DEFAULT,
+      fontFamily: FontFamily.medium,
+      fontSize: FontSize.xs,
+    },
+    availabilityDetail: {
+      color: Colors.dark.tertiary,
+      fontFamily: FontFamily.regular,
+      fontSize: 10,
+    },
+    emergencyCard: {
+      height: 126,
+      borderRadius: BorderRadius.md,
+      overflow: 'hidden',
+      marginBottom: Spacing.sm,
+    },
+    emergencyImage: {
+      flex: 1,
+      justifyContent: 'flex-end',
+    },
+    emergencyImageStyle: {
+      borderRadius: BorderRadius.md,
+    },
+    emergencyScrim: {
+      padding: Spacing.md,
+      backgroundColor: 'rgba(0,0,0,0.42)',
+    },
+    emergencyTitleRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: Spacing.sm,
+    },
+    emergencyTitle: {
+      flex: 1,
+      color: Colors.white,
+      fontFamily: FontFamily.semibold,
+      fontSize: FontSize.base,
+    },
+    emergencyDetail: {
+      color: Colors.white,
+      fontFamily: FontFamily.medium,
+      fontSize: FontSize.xs,
+      marginTop: Spacing.xs,
+    },
   hero: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -384,9 +599,9 @@ const styles = StyleSheet.create({
     marginBottom: Spacing['2xs'],
   },
   greeting: {
-    fontFamily: FontFamily.bold,
-    fontSize: FontSize.xl,
-    color: Colors.dark.DEFAULT,
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.md,
+    color: Colors.white,
   },
   heroRow: {
     alignItems: 'stretch',
@@ -529,23 +744,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: Spacing.md,
+    rowGap: Spacing.sm,
   },
   quickActionClean: {
-    width: '48%',
+    width: '48.5%',
     backgroundColor: Colors.surface.DEFAULT,
-    borderRadius: BorderRadius.md,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
+    borderRadius: 10,
+    minHeight: 50,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
-    ...Shadows.sm,
+    gap: Spacing.sm,
   },
   quickIconClean: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: BorderRadius.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -554,12 +769,12 @@ const styles = StyleSheet.create({
   },
   quickLabel: {
     fontFamily: FontFamily.semibold,
-    fontSize: FontSize.base,
+    fontSize: FontSize.xs,
     color: Colors.dark.DEFAULT,
   },
   quickCaption: {
     fontFamily: FontFamily.regular,
-    fontSize: FontSize.xs,
+    fontSize: 9,
     color: Colors.dark.tertiary,
     marginTop: 2,
   },

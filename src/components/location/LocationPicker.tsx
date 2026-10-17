@@ -87,6 +87,8 @@ export function LocationPicker({ currentLocationName, onLocationSelect }: Locati
           'Location Permission Denied',
           'BloodIn needs your location permission to discover nearby donors. You can tap again to allow.'
         );
+      } else if (errMsg.includes('Location accuracy')) {
+        Alert.alert('Precise Location Needed', errMsg);
       } else {
         Alert.alert(
           'Location Unavailable',

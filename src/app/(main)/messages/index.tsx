@@ -45,7 +45,7 @@ export default function MessagesListScreen() {
     return (
       <TouchableOpacity 
         style={styles.chatRow} 
-        onPress={() => router.push(`/(main)/messages/${item.id}`)}
+        onPress={() => router.push(`/(main)/messages/${item.id}?name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar || '')}`)}
         activeOpacity={0.7}
       >
         <Avatar name={name} imageUrl={avatar} size="md" />

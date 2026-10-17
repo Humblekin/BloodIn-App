@@ -5,11 +5,11 @@
 export const Colors = {
   // ─── Brand ───────────────────────────────────────────────
   primary: {
-    DEFAULT: '#7A1F2B',       // Deep Burgundy — brand identity, primary actions
-    light: '#9A3A47',         // Lighter burgundy for hover/pressed states
-    dark: '#5C1620',          // Darker burgundy for emphasis
-    subtle: '#F5E6E8',        // Very light burgundy tint for backgrounds
-    muted: '#D4A0A8',         // Soft burgundy for secondary elements
+    DEFAULT: '#F20D19',       // Bright red — brand identity, primary actions
+    light: '#F54B55',         // Lighter red for pressed states
+    dark: '#D90B16',          // Deeper red for emphasis
+    subtle: '#FCE8EA',        // Pale red tint for backgrounds
+    muted: '#E9A0A5',         // Muted red for secondary elements
   },
 
   // ─── Dark / Typography ──────────────────────────────────
@@ -39,7 +39,7 @@ export const Colors = {
     DEFAULT: '#E5E7EB',       // Standard border
     light: '#F3F4F6',         // Subtle border
     dark: '#D1D5DB',          // Emphasized border
-    focus: '#7A1F2B',         // Focus ring (primary)
+    focus: '#F20D19',         // Focus ring (primary)
   },
 
   // ─── Semantic ───────────────────────────────────────────
@@ -98,13 +98,13 @@ export const Colors = {
   // ─── Orbit-specific Colors ─────────────────────────────
   orbit: {
     background: '#111827',    // Deep dark background for orbit view
-    ring: 'rgba(122, 31, 43, 0.2)',   // Subtle burgundy ring
-    ringActive: 'rgba(122, 31, 43, 0.4)',
+    ring: 'rgba(242, 13, 25, 0.2)',   // Subtle red ring
+    ringActive: 'rgba(242, 13, 25, 0.4)',
     node: '#FFFFFF',          // User avatars
-    nodeBorder: '#7A1F2B',
-    connectionLine: 'rgba(122, 31, 43, 0.15)',
-    glow: 'rgba(122, 31, 43, 0.1)',
-    centerRing: '#7A1F2B',
+    nodeBorder: '#F20D19',
+    connectionLine: 'rgba(242, 13, 25, 0.15)',
+    glow: 'rgba(242, 13, 25, 0.1)',
+    centerRing: '#F20D19',
   },
 
   // ─── Utility ────────────────────────────────────────────
