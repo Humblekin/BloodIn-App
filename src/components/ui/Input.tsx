@@ -68,6 +68,7 @@ export const Input = forwardRef<TextInput, InputProps>(
             onFocus={handleFocus}
             onBlur={handleBlur}
             {...props}
+            underlineColorAndroid="transparent"
           />
           {rightIcon && <View style={styles.rightIcon}>{rightIcon}</View>}
         </View>
@@ -98,12 +99,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: Colors.border.DEFAULT,
-    borderRadius: BorderRadius.sm,
+    borderRadius: BorderRadius.md,
     backgroundColor: Colors.surface.DEFAULT,
-    minHeight: 48,
+    minHeight: 52,
   },
   inputContainerFocused: {
     borderColor: Colors.primary.DEFAULT,
+    backgroundColor: Colors.primary.subtle,
   },
   inputContainerError: {
     borderColor: Colors.semantic.critical.DEFAULT,
@@ -115,7 +117,7 @@ const styles = StyleSheet.create({
     color: Colors.dark.DEFAULT,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-    minHeight: 48,
+    minHeight: 50,
   },
   leftIcon: {
     paddingLeft: Spacing.md,

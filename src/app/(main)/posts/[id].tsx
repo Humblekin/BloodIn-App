@@ -194,6 +194,7 @@ export default function PostDetailScreen() {
               placeholderTextColor={Colors.dark.tertiary}
               multiline
               maxLength={MAX_COMMENT_LENGTH}
+              underlineColorAndroid="transparent"
             />
             <TouchableOpacity
               style={[styles.sendButton, (!draft.trim() || sending) && styles.sendButtonDisabled]}
@@ -288,6 +289,8 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 40,
     maxHeight: 96,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
     backgroundColor: Colors.background.secondary,
     borderRadius: 20,
     paddingHorizontal: Spacing.md,
@@ -295,6 +298,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: FontSize.base,
     color: Colors.dark.DEFAULT,
+    textAlignVertical: 'top',
   },
   sendButton: {
     backgroundColor: Colors.primary.DEFAULT,

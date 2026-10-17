@@ -101,6 +101,7 @@ export function ReportModal({ visible, onClose, targetType, targetId }: ReportMo
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={4}
+              underlineColorAndroid="transparent"
             />
           </ScrollView>
 
@@ -196,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.card,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     fontFamily: typography.fonts.regular,
     fontSize: typography.sizes.md,

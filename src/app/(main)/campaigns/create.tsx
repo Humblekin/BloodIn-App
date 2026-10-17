@@ -68,6 +68,7 @@ export default function CreateCampaignScreen() {
             onChangeText={setTitle}
             placeholder="e.g. Accra City Donation Drive"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
           
           <Text style={styles.inputLabel}>Description</Text>
@@ -79,6 +80,7 @@ export default function CreateCampaignScreen() {
             placeholderTextColor={colors.text.tertiary}
             multiline
             numberOfLines={4}
+            underlineColorAndroid="transparent"
           />
 
           <Text style={styles.inputLabel}>Start Date (YYYY-MM-DD) *</Text>
@@ -88,6 +90,7 @@ export default function CreateCampaignScreen() {
             onChangeText={setStartDateStr}
             placeholder="e.g. 2026-12-01"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
 
           <Text style={styles.inputLabel}>Venue / Location</Text>
@@ -97,6 +100,7 @@ export default function CreateCampaignScreen() {
             onChangeText={setVenue}
             placeholder="e.g. Independence Square"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
         </View>
 
@@ -137,11 +141,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.card,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
+    minHeight: 52,
     fontFamily: typography.fonts.regular,
     fontSize: typography.sizes.md,
     color: colors.text.primary,
+    textAlignVertical: 'center',
   },
   textArea: {
     height: 100,

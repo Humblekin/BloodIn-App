@@ -120,6 +120,7 @@ export default function CreateRequestScreen() {
             onChangeText={setHospitalName}
             placeholder="e.g. Korle-Bu Teaching Hospital"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
 
           <Text style={styles.inputLabel}>Units Required *</Text>
@@ -130,6 +131,7 @@ export default function CreateRequestScreen() {
             keyboardType="number-pad"
             placeholder="1"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
 
           <Text style={styles.inputLabel}>Contact Number (Optional)</Text>
@@ -140,6 +142,7 @@ export default function CreateRequestScreen() {
             keyboardType="phone-pad"
             placeholder="+233 XX XXX XXXX"
             placeholderTextColor={colors.text.tertiary}
+            underlineColorAndroid="transparent"
           />
 
           <Text style={styles.inputLabel}>Additional Notes</Text>
@@ -151,6 +154,7 @@ export default function CreateRequestScreen() {
             placeholderTextColor={colors.text.tertiary}
             multiline
             numberOfLines={4}
+            underlineColorAndroid="transparent"
           />
         </View>
 
@@ -264,11 +268,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.card,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
+    minHeight: 52,
     fontFamily: typography.fonts.regular,
     fontSize: typography.sizes.md,
     color: colors.text.primary,
+    textAlignVertical: 'center',
   },
   textArea: {
     height: 100,

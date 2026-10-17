@@ -126,6 +126,7 @@ export default function CreatePostScreen() {
           multiline
           maxLength={MAX_POST_LENGTH}
           textAlignVertical="top"
+          underlineColorAndroid="transparent"
         />
         <Text style={styles.counter}>{content.length}/{MAX_POST_LENGTH}</Text>
 
@@ -247,11 +248,13 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface.DEFAULT,
     borderWidth: 1,
     borderColor: Colors.border.DEFAULT,
-    borderRadius: 10,
+    borderRadius: 12,
     padding: Spacing.md,
+    minHeight: 52,
     fontFamily: FontFamily.regular,
     fontSize: FontSize.base,
     color: Colors.dark.DEFAULT,
+    textAlignVertical: 'center',
   },
   textArea: {
     minHeight: 120,

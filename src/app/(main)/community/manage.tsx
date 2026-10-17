@@ -91,6 +91,7 @@ export default function ManageCommunityScreen() {
               onChangeText={setAnnouncementTitle}
               placeholder="Announcement title"
               placeholderTextColor={colors.text.tertiary}
+              underlineColorAndroid="transparent"
             />
             
             <Text style={styles.inputLabel}>Content</Text>
@@ -102,6 +103,7 @@ export default function ManageCommunityScreen() {
               placeholderTextColor={colors.text.tertiary}
               multiline
               numberOfLines={4}
+              underlineColorAndroid="transparent"
             />
 
             <Pressable 
@@ -171,11 +173,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.default,
     borderWidth: 1,
     borderColor: colors.border.default,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
+    minHeight: 52,
     fontFamily: typography.fonts.regular,
     fontSize: typography.sizes.md,
     color: colors.text.primary,
+    textAlignVertical: 'center',
     marginBottom: 8,
   },
   textArea: {
