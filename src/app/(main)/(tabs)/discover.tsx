@@ -214,7 +214,7 @@ export default function DiscoverScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Discover" />
+      <Header title="Discover" variant="brand" />
 
       <View style={styles.searchSection}>
         <Input

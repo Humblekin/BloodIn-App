@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Switch, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Header } from '@/components/layout/Header';
 import { colors } from '@/constants/colors';
 import { typography } from '@/constants/typography';
 import { useBloodRequests } from '@/features/requests/hooks/useBloodRequests';
@@ -62,7 +63,7 @@ export default function CreateRequestScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'New Request' }} />
+      <Header title="New Request" showBack variant="brand" />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         

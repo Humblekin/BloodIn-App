@@ -71,6 +71,7 @@ export default function MessagesListScreen() {
       <Header 
         title="Messages" 
         showBack 
+        variant="brand"
         rightElement={
           <TouchableOpacity
             style={{ padding: Spacing.xs }}
@@ -79,7 +80,7 @@ export default function MessagesListScreen() {
             accessibilityRole="button"
             accessibilityLabel="Start a new conversation"
           >
-            <Edit size={24} color={Colors.primary.DEFAULT} />
+            <Edit size={24} color={Colors.white} />
           </TouchableOpacity>
         }
       />

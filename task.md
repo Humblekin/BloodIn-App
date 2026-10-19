@@ -66,6 +66,11 @@ The checklist above tracks earlier feature implementation, not completion of the
 - [x] Redesign conversation while retaining authorization, Supabase Realtime, message sending, and keyboard behavior.
 - [x] Redesign request/coordination details while retaining real request data and offer-to-help behavior.
 - [ ] Apply the visual system to other existing screens without removing functionality.
+    - [x] Added a shared `Header` brand (vivid-red) variant with light foreground and a scrim back button for `transparent` headers; neutral `surface` remains the default.
+    - [x] Brand header applied to Discover, Blood Requests, Feed, Messages list, Profile, Notifications, Post detail/create, and the Profile sub-screens (Edit, Connections, Safety, Privacy, Premium, Donate).
+    - [x] Added the shared brand header to the stack-hidden form screens (Request, Community, Campaign create/manage/detail) which previously rendered no header and had no visible back affordance.
+    - [x] Aligned the Requests list card with the new system (border-only, no drop shadow).
+    - [ ] Orbit (intentionally dark HUD) and the auth onboarding screens retain their dedicated treatments; rendered comparison still pending.
 - [x] Run `node scripts/test_overhaul.js`; all five existing checks passed on 2026-10-17.
 - [x] Run `node ./node_modules/typescript/bin/tsc --noEmit --incremental false`; passed on 2026-10-17. The `npm run typecheck` wrapper could not write its npm log because C: had no free space.
 - [ ] Launch the app with an authenticated session, capture all three target screens, and compare with `assets/images/Screenshot (2).png`.
@@ -89,5 +94,6 @@ The checklist above tracks earlier feature implementation, not completion of the
 - Discover no longer filters people to the signed-in user's blood group by default and requests up to 100 nearby candidates for its local text filter. The RPC still applies its privacy rules and default 25 km radius.
 - Password recovery now routes from Login to the email form, sends a Supabase reset link back to `bloodin://reset-password`, establishes a recovery session through the root deep-link handler, validates the new password, and updates it with Supabase Auth. The shared browser was already on Orbit during the CTA smoke-test attempt, so no email was sent.
 - Supabase Auth redirect allow-list must include `bloodin://reset-password` for native builds (and the app's web reset URL when testing web).
-- **Next task:** allow the password recovery redirect in Supabase Auth settings and verify it end to end; capture the three redesigned screens for comparison with `assets/images/Screenshot (2).png`; verify native GPS prompts and authenticated location RPCs on a device.
+- Visual-system rollout: the shared `Header` now supports `variant="brand"` (vivid `#F20D19`, white title/back) and `transparent` now renders a white arrow on a `rgba(17,24,39,0.35)` scrim for legibility over cover imagery. Discover, Blood Requests, Feed, Messages list, Profile, Notifications, Post detail/create, the Profile sub-screens (Edit, Connections, Safety, Privacy, Premium, Donate), and the Request/Community/Campaign create/manage/detail screens now use it. Requests list cards were changed to border-only (no shadow) to match home/discover. Orbit stays dark by design; auth onboarding screens were left unchanged. Direct `tsc --noEmit` and `node scripts/test_overhaul.js` both pass after these edits; rendered comparison is still pending.
+- **Next task:** allow the password recovery redirect in Supabase Auth settings and verify it end to end; capture the three redesigned screens plus a sample of the newly brand-headered screens for comparison with `assets/images/Screenshot (2).png`; verify native GPS prompts and authenticated location RPCs on a device.
 

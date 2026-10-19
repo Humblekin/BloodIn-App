@@ -1,5 +1,5 @@
 // Project LifeOrbit — Password Reset Screen
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Keyboard } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Lock, Mail } from 'lucide-react-native';
@@ -9,21 +9,47 @@ import { Header } from '../../components/layout/Header';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../features/auth/stores/authStore';
+import { describeAuthCallbackError } from '../../features/auth/authCallback';
 import { passwordSchema, resetPasswordSchema } from '../../utils/validation';
 import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
 
+const firstParam = (value?: string | string[]) =>
+  Array.isArray(value) ? value[0] : value;
+
 export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { email: initialEmail } = useLocalSearchParams<{ email?: string }>();
+  const params = useLocalSearchParams<{
+    email?: string;
+    error_message?: string;
+    error_code?: string;
+    error_description?: string;
+  }>();
   const { resetPassword, updatePassword, isLoading, session } = useAuthStore();
+
+  const initialEmail = firstParam(params.email);
+  // Link failures arrive either as a prepared sentence (from the root layout)
+  // or as raw Supabase error params on the callback URL.
+  const linkError =
+    firstParam(params.error_message) ??
+    (firstParam(params.error_code) || firstParam(params.error_description)
+      ? describeAuthCallbackError(
+          firstParam(params.error_code),
+          firstParam(params.error_description)
+        )
+      : null);
+
   const [email, setEmail] = useState(typeof initialEmail === 'string' ? initialEmail : '');
   const [isSent, setIsSent] = useState(false);
   const [isUpdated, setIsUpdated] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (linkError) setError(linkError);
+  }, [linkError]);
 
   const handleSendReset = async () => {
     Keyboard.dismiss();

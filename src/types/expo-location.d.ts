@@ -45,10 +45,23 @@ declare module 'expo-location' {
     timestamp: number;
   }
 
+  export interface GeocodedAddress {
+    city?: string | null;
+    district?: string | null;
+    name?: string | null;
+    street?: string | null;
+    region?: string | null;
+    subregion?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+    timezone?: string | null;
+  }
+
   export function hasServicesEnabledAsync(): Promise<boolean>;
   export function getForegroundPermissionsAsync(): Promise<PermissionResponse>;
   export function requestForegroundPermissionsAsync(): Promise<PermissionResponse>;
   export function enableNetworkProviderAsync(): Promise<void>;
   export function getCurrentPositionAsync(options?: { accuracy?: Accuracy | LocationAccuracy; mayShowUserSettingsDialog?: boolean }): Promise<LocationObject>;
   export function watchPositionAsync(options: { accuracy?: Accuracy | LocationAccuracy }, callback: (loc: LocationObject) => void): Promise<{ remove: () => void }>;
+  export function reverseGeocodeAsync(location: { latitude: number; longitude: number }): Promise<GeocodedAddress[]>;
 }

@@ -61,6 +61,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     storage: SecureStoreAdapter,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: false, // Not needed for mobile
+    detectSessionInUrl: false, // Not needed for mobile — auth callbacks are handled manually
+    // PKCE: recovery/confirmation links return a one-time ?code= that is
+    // exchanged on-device (see features/auth/authCallback.ts). Avoids putting
+    // tokens in URL fragments on mobile.
+    flowType: 'pkce',
   },
 });

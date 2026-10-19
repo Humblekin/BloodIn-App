@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { Droplet, MapPin, Clock, PlusCircle } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize, LineHeight } from '@/constants/typography';
-import { BorderRadius, Spacing, Shadows } from '@/constants/spacing';
+import { BorderRadius, Spacing } from '@/constants/spacing';
 import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import { requestService, type BloodRequestRow } from '@/features/requests/services/requestService';
 
@@ -84,7 +84,7 @@ export default function RequestsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Blood Requests" />
+      <Header title="Blood Requests" variant="brand" />
       <Screen padding={false} backgroundColor={Colors.background.secondary}>
         {loading ? (
           <View style={styles.center}>
@@ -154,7 +154,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
     borderWidth: 1,
     borderColor: Colors.border.light,
-    ...Shadows.sm,
   },
   requestBlood: {
     alignItems: 'center',

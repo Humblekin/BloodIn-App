@@ -84,7 +84,7 @@ export default function CreatePostScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header showBack title={communityParamId ? 'Post to Community' : 'New Post'} />
+      <Header showBack title={communityParamId ? 'Post to Community' : 'New Post'} variant="brand" />
       <ScrollView
         style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}
         contentContainerStyle={styles.content}

@@ -38,6 +38,7 @@ export default function FeedScreen() {
     <View style={{ flex: 1 }}>
       <Header
         title="Feed"
+        variant="brand"
         rightElement={
           <TouchableOpacity
             style={styles.composeButton}
@@ -46,7 +47,7 @@ export default function FeedScreen() {
             accessibilityRole="button"
             accessibilityLabel="Create a post"
           >
-            <Plus size={20} color={Colors.white} />
+            <Plus size={18} color={Colors.primary.DEFAULT} />
             <Text style={styles.composeText}>New Post</Text>
           </TouchableOpacity>
         }
@@ -106,7 +107,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: Colors.primary.DEFAULT,
+    backgroundColor: Colors.white,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
     borderRadius: 20,
@@ -114,7 +115,7 @@ const styles = StyleSheet.create({
   composeText: {
     fontFamily: FontFamily.semibold,
     fontSize: FontSize.sm,
-    color: Colors.white,
+    color: Colors.primary.DEFAULT,
   },
   listContent: {
     padding: Spacing.md,

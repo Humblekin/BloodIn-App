@@ -9,7 +9,7 @@ import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 import { useRouter } from 'expo-router';
-import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight, Star } from 'lucide-react-native';
+import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight, Star, Heart } from 'lucide-react-native';
 import { PremiumBadge } from '@/features/premium/components/PremiumBadge';
 
 export default function ProfileScreen() {
@@ -47,11 +47,17 @@ export default function ProfileScreen() {
       icon: <Star size={22} color={Colors.premium} />,
       onPress: () => router.push('/(main)/(tabs)/profile/premium'),
     },
+    {
+      label: 'Donate Programme',
+      description: 'Your donor card and donation recognitions',
+      icon: <Heart size={22} color={Colors.primary.DEFAULT} />,
+      onPress: () => router.push('/(main)/(tabs)/profile/donate'),
+    },
   ];
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Profile" />
+      <Header title="Profile" variant="brand" />
       <Screen scrollable padding>
         <View style={styles.header}>
           <Avatar

@@ -3,11 +3,13 @@
 
 import { create } from 'zustand';
 import type { Session, User, AuthError } from '@supabase/supabase-js';
-import { createURL } from 'expo-linking';
 import { supabase } from '@/lib/supabase/client';
+import {
+  CONFIRM_REDIRECT_URL,
+  RECOVERY_REDIRECT_URL,
+  processAuthCallbackUrl,
+} from '@/features/auth/authCallback';
 import type { ProfileRow, PrivacySettingsRow } from '@/types/database';
-
-const authRedirectUrl = createURL('auth/callback', { scheme: 'bloodin' });
 
 // ─── State Shape ──────────────────────────────────────────
 interface AuthState {
@@ -27,6 +29,7 @@ interface AuthState {
 
   // Actions
   initialize: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   signUp: (email: string, password: string, displayName: string) => Promise<{ error: AuthError | null }>;
   completeAuthCallback: (url: string) => Promise<{ error: AuthError | null }>;
   signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
@@ -86,6 +89,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           ]);
         }
 
+        // Password-recovery sessions are established from a deep link; make
+        // sure profile state loads the same way as a normal sign-in.
+        if (event === 'PASSWORD_RECOVERY' && newSession?.user) {
+          await Promise.all([
+            get().fetchProfile(),
+            get().fetchPrivacySettings(),
+          ]);
+        }
+
         if (event === 'SIGNED_OUT') {
           set({ profile: null, privacySettings: null });
         }
@@ -99,6 +111,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // ─── Sign Up ──────────────────────────────────────────
+  // Re-sync session state from storage. Used after an auth deep link so the
+  // store reflects a recovery session even if the PASSWORD_RECOVERY event was
+  // emitted before the listener was registered.
+  refreshSession: async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session?.user) return;
+      set({ session: data.session, user: data.session.user });
+      void Promise.all([get().fetchProfile(), get().fetchPrivacySettings()]);
+    } catch {
+      // Session state will settle through onAuthStateChange if this fails.
+    }
+  },
+
   signUp: async (email, password, displayName) => {
     try {
       set({ isLoading: true, error: null });
@@ -110,7 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           data: {
             display_name: displayName,
           },
-          emailRedirectTo: authRedirectUrl,
+          emailRedirectTo: CONFIRM_REDIRECT_URL,
         },
       });
 
@@ -132,35 +158,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // ─── Email Confirmation Callback ─────────────────────
+  // ─── Email Confirmation / Recovery Callback ───────────
+  // Delegates to the shared callback processor (handles PKCE code exchange,
+  // implicit token fragments, expired and invalid links). Session state is
+  // updated through onAuthStateChange when a session is established.
   completeAuthCallback: async (url) => {
-    try {
-      const [urlWithoutHash, hash = ''] = url.split('#', 2);
-      const query = new URLSearchParams(urlWithoutHash.split('?')[1] ?? '');
-
-      if (query.get('code')) {
-        const { error } = await supabase.auth.exchangeCodeForSession(query.get('code')!);
-        return { error };
-      }
-
-      const hashParams = new URLSearchParams(hash);
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-
-      if (!accessToken || !refreshToken) {
-        return { error: { message: 'The email confirmation link is invalid or expired.' } as AuthError };
-      }
-
-      const { error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-
-      return { error };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Email confirmation failed';
-      return { error: { message } as AuthError };
+    const result = await processAuthCallbackUrl(url);
+    if (result.kind === 'error') {
+      return { error: { message: result.message || 'The link is invalid or has expired.' } as AuthError };
     }
+    return { error: null };
   },
 
   // ─── Sign In ──────────────────────────────────────────
@@ -224,7 +231,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ isLoading: true, error: null });
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: createURL('reset-password', { scheme: 'bloodin' }),
+        redirectTo: RECOVERY_REDIRECT_URL,
       });
 
       if (error) {

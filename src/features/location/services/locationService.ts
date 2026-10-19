@@ -8,6 +8,7 @@ const MAX_LOCATION_ACCURACY_METERS = 5000;
 const MAX_WEB_LOCATION_ACCURACY_METERS = 25000;
 const RETRY_LOCATION_ACCURACY_METERS = 1000;
 const MAX_CITY_LABEL_DISTANCE_KM = 50;
+const MAX_REGION_RESOLVE_DISTANCE_KM = 150;
 
 export interface CountryRow { id: number; name: string; code: string; phone_code: string | null; }
 export interface RegionRow { id: number; country_id: number; name: string; }
@@ -321,7 +322,7 @@ export const locationService = {
   async resolveNearestCity(latitude: number, longitude: number): Promise<{
     countryId: number;
     regionId: number;
-    cityId: number;
+    cityId?: number;
     name: string;
   } | null> {
     interface CityWithRegion {
@@ -357,16 +358,32 @@ export const locationService = {
       }
     }
 
-    if (nearestDistKm > MAX_CITY_LABEL_DISTANCE_KM) return null;
+    if (nearestDistKm > MAX_REGION_RESOLVE_DISTANCE_KM) return null;
 
     const region = Array.isArray(nearest.regions) ? nearest.regions[0] : nearest.regions;
     if (!region) return null;
 
+    const withinCity = nearestDistKm <= MAX_CITY_LABEL_DISTANCE_KM;
+    let name = withinCity ? `${nearest.name}, ${region.name}` : region.name;
+    let cityId: number | undefined = withinCity ? nearest.id : undefined;
+
+    if (!withinCity && Platform.OS !== 'android') {
+      try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const locality = place?.district || place?.subregion || place?.city || place?.name;
+        if (locality) {
+          name = `${locality}, ${region.name}`;
+        }
+      } catch (reverseErr) {
+        console.warn('[Location] reverse geocoding unavailable:', reverseErr);
+      }
+    }
+
     return {
       countryId: region.country_id,
       regionId: region.id,
-      cityId: nearest.id,
-      name: `${nearest.name}, ${region.name}`,
+      cityId,
+      name,
     };
   },
 
@@ -376,7 +393,7 @@ export const locationService = {
     cityId?: number;
     latitude?: number;
     longitude?: number;
-  }): Promise<void> {
+  }, options?: { updateHome?: boolean }): Promise<void> {
     if (location.latitude !== undefined && (location.latitude < -90 || location.latitude > 90 || !Number.isFinite(location.latitude))) {
       throw new Error('Invalid latitude');
     }
@@ -391,6 +408,7 @@ export const locationService = {
         p_city_id: location.cityId ?? null,
         p_latitude: location.latitude ?? null,
         p_longitude: location.longitude ?? null,
+        p_update_home: options?.updateHome ?? false,
       });
 
     if (error) throw error;
@@ -418,12 +436,12 @@ export const locationService = {
   async hasCurrentLocation(userId: string): Promise<boolean> {
     const { data, error } = await supabase
       .from('user_locations')
-      .select('current_coordinates')
+      .select('current_coordinates, home_coordinates')
       .eq('user_id', userId)
       .maybeSingle();
 
     if (error) throw error;
-    return Boolean(data?.current_coordinates);
+    return Boolean(data?.current_coordinates || data?.home_coordinates);
   },
 
   // ─── Discovery ────────────────────────────────────────
@@ -434,6 +452,7 @@ export const locationService = {
     limit?: number;
     offset?: number;
     willingOnly?: boolean;
+    forOrbit?: boolean;
   }): Promise<NearbyUserResult[]> {
     const { data: authData, error: authError } = await supabase.auth.getUser();
     if (authError) throw authError;
@@ -452,6 +471,7 @@ export const locationService = {
       p_limit: options?.limit || 20,
       p_offset: options?.offset || 0,
       p_willing_only: options?.willingOnly ?? false,
+      p_for_orbit: options?.forOrbit ?? false,
     });
 
     if (error) throw error;

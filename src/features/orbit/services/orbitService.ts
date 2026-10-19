@@ -25,7 +25,7 @@ export const orbitService = {
       throw new Error('LOCATION_REQUIRED');
     }
 
-    const rows = await locationService.findNearbyUsers(options);
+    const rows = await locationService.findNearbyUsers({ ...options, forOrbit: true });
 
     // Filter out any records with invalid or missing coordinates/distances
     const validRows = rows.filter(

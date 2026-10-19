@@ -156,7 +156,7 @@ export default function ConnectionsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Network Connections" showBack />
+      <Header title="Network Connections" showBack variant="brand" />
       
       <View style={styles.tabs}>
         <TouchableOpacity 

@@ -139,7 +139,7 @@ export default function PostDetailScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header showBack title="Post" />
+      <Header showBack title="Post" variant="brand" />
 
       {loading ? (
         <View style={styles.centerState}>

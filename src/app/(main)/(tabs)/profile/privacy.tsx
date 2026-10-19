@@ -169,7 +169,7 @@ export default function PrivacySettingsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Privacy Settings" showBack />
+      <Header title="Privacy Settings" showBack variant="brand" />
       <Screen scrollable padding>
         <View style={styles.headerInfo}>
           <Shield size={32} color={Colors.primary.DEFAULT} style={styles.icon} />

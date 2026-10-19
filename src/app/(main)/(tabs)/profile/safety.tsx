@@ -70,7 +70,7 @@ export default function SafetyCenterScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Header title="Safety Center" showBack />
+      <Header title="Safety Center" showBack variant="brand" />
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.heroSection}>

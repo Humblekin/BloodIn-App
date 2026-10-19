@@ -8,12 +8,17 @@ import { Colors } from '../../constants/colors';
 import { FontFamily, FontSize } from '../../constants/typography';
 import { Spacing, ScreenPadding, TouchTarget } from '../../constants/spacing';
 
+// Surface = neutral white bar (detail screens). Brand = vivid-red bar that
+// matches the redesigned home header (top-level browsing screens).
+export type HeaderVariant = 'surface' | 'brand';
+
 export interface HeaderProps {
   title?: string;
   showBack?: boolean;
   onBack?: () => void;
   rightElement?: React.ReactNode;
   transparent?: boolean;
+  variant?: HeaderVariant;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -23,10 +28,16 @@ export function Header({
   onBack,
   rightElement,
   transparent = false,
+  variant = 'surface',
   style,
 }: HeaderProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const isBrand = variant === 'brand';
+  // Brand headers are red; transparent headers float over imagery — both need
+  // light foreground content, while the neutral surface header stays dark.
+  const onDarkSurface = isBrand || transparent;
+  const foreground = onDarkSurface ? Colors.white : Colors.dark.DEFAULT;
 
   const handleBack = () => {
     if (onBack) {
@@ -45,7 +56,7 @@ export function Header({
       style={[
         styles.container,
         { paddingTop: insets.top },
-        !transparent && styles.solidBackground,
+        !transparent && (isBrand ? styles.brandBackground : styles.solidBackground),
         style,
       ]}
     >
@@ -54,19 +65,19 @@ export function Header({
           {showBack && (
             <TouchableOpacity
               onPress={handleBack}
-              style={styles.backButton}
+              style={[styles.backButton, transparent && styles.backButtonScrim]}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <ArrowLeft size={24} color={Colors.dark.DEFAULT} />
+              <ArrowLeft size={24} color={foreground} />
             </TouchableOpacity>
           )}
         </View>
 
         <View style={styles.centerSection}>
           {title ? (
-            <Text style={styles.title} numberOfLines={1}>
+            <Text style={[styles.title, { color: foreground }]} numberOfLines={1}>
               {title}
             </Text>
           ) : null}
@@ -89,6 +100,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface.DEFAULT,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border.light,
+  },
+  brandBackground: {
+    backgroundColor: Colors.primary.DEFAULT,
   },
   content: {
     flexDirection: 'row',
@@ -118,6 +132,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-start',
     marginLeft: -Spacing.xs, // Offset padding for optical alignment
+  },
+  backButtonScrim: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(17, 24, 39, 0.35)',
+    alignItems: 'center',
+    marginLeft: 0,
   },
   title: {
     fontFamily: FontFamily.semibold,

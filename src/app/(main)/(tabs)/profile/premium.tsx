@@ -87,7 +87,7 @@ export default function PremiumScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Premium" showBack />
+      <Header title="Premium" showBack variant="brand" />
       <Screen scrollable padding>
         {isAlreadyPremium ? (
           <View style={styles.currentBadge}>

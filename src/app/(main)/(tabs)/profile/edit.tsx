@@ -116,7 +116,7 @@ export default function EditProfileScreen() {
 
     if (selectedLocation && user) {
       try {
-        await locationService.updateUserLocation(user.id, selectedLocation);
+        await locationService.updateUserLocation(user.id, selectedLocation, { updateHome: true });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Location could not be saved';
         Alert.alert('Location Update Failed', message);
@@ -129,7 +129,7 @@ export default function EditProfileScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Edit Profile" showBack />
+      <Header title="Edit Profile" showBack variant="brand" />
         <Screen scrollable padding keyboardAvoiding>
           <View style={styles.form}>
             <View style={styles.avatarSection}>

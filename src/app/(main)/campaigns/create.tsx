@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Pressable, Alert } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Header } from '@/components/layout/Header';
 import { colors } from '@/constants/colors';
 import { typography } from '@/constants/typography';
 import { useCampaigns } from '@/features/campaigns/hooks/useCampaigns';
@@ -57,7 +58,7 @@ export default function CreateCampaignScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Create Campaign' }} />
+      <Header title="Create Campaign" showBack variant="brand" />
       
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.section}>

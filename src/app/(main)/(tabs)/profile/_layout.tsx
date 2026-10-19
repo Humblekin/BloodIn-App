@@ -10,6 +10,7 @@ export default function ProfileLayout() {
       <Stack.Screen name="connections" />
       <Stack.Screen name="safety" />
       <Stack.Screen name="premium" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="donate" options={{ presentation: 'modal' }} />
     </Stack>
   );
 }

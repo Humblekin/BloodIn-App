@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Header } from '@/components/layout/Header';
 import { colors } from '@/constants/colors';
 import { typography } from '@/constants/typography';
 import { useCommunity } from '@/features/communities/hooks/useCommunity';
@@ -77,7 +78,7 @@ export default function ManageCommunityScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen options={{ title: 'Manage Community' }} />
+      <Header title="Manage Community" showBack variant="brand" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         

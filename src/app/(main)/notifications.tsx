@@ -104,7 +104,7 @@ export default function NotificationsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Header title="Notifications" showBack />
+      <Header title="Notifications" showBack variant="brand" />
       <Screen padding={false} backgroundColor={Colors.background.secondary}>
         {loading && notifications.length === 0 ? (
            <View style={styles.center}>
