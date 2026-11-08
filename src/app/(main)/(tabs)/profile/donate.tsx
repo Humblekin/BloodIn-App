@@ -75,7 +75,6 @@ export default function DonateScreen() {
     try {
       setCard(await donationService.getMyCard());
     } catch (err) {
-      console.error('[Donate] getMyCard error:', err);
       setLoadError(describeError(err));
     } finally {
       setLoading(false);
@@ -91,7 +90,6 @@ export default function DonateScreen() {
     try {
       setCard(await donationService.joinProgramme());
     } catch (err) {
-      console.error('[Donate] joinProgramme error:', err);
       Alert.alert('Could not join', describeError(err));
     } finally {
       setJoining(false);
@@ -150,7 +148,6 @@ export default function DonateScreen() {
       Alert.alert('Donation recorded', `The donation of ${record.donationDate} was recognised.`);
       await loadCard();
     } catch (err) {
-      console.error('[Donate] recogniseDonation error:', err);
       Alert.alert('Could not record donation', describeError(err));
     } finally {
       setRecognising(false);
