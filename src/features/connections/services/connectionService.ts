@@ -200,10 +200,17 @@ export const connectionService = {
     requestId: string,
     action: 'accepted' | 'declined'
   ): Promise<void> {
-    const { data: request, error: fetchError } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('connection_requests')
       .update({ status: action, updated_at: new Date().toISOString() })
-      .eq('id', requestId)
+      .eq('id', requestId);
+
+    if (user?.id) {
+      query = query.eq('receiver_id', user.id);
+    }
+
+    const { data: request, error: fetchError } = await query
       .select()
       .single();
 
@@ -241,20 +248,32 @@ export const connectionService = {
   },
 
   async removeConnection(connectionId: string): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('connections')
       .delete()
       .eq('id', connectionId);
 
+    if (user?.id) {
+      query = query.or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 
   async cancelRequest(requestId: string): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('connection_requests')
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', requestId);
 
+    if (user?.id) {
+      query = query.eq('sender_id', user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 };

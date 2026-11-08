@@ -9,7 +9,7 @@ jobs:
   ping:
     runs-on: ubuntu-latest
     env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.EXPO_PUBLIC_SUPABASE_URL || 'https://ghobtkofruqgcehdmrfd.supabase.co' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.EXPO_PUBLIC_SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - name: Ping Supabase REST API

@@ -170,11 +170,17 @@ export const requestService = {
     requestId: string,
     status: 'active' | 'fulfilled' | 'cancelled'
   ): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('blood_requests')
       .update({ status })
       .eq('id', requestId);
 
+    if (user?.id) {
+      query = query.eq('requester_id', user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 
@@ -214,11 +220,18 @@ export const requestService = {
     responseId: string,
     status: 'accepted' | 'declined' | 'completed' | 'cancelled'
   ): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('request_responses')
       .update({ status })
       .eq('id', responseId);
 
+    // If cancelling, ensure the caller is the responder
+    if (user?.id && status === 'cancelled') {
+      query = query.eq('responder_id', user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 };

@@ -52,23 +52,28 @@ export const messageService = {
     const conversations = (data || []) as ConversationRow[];
 
     // Step 3: Attach participants + their profiles for every conversation
-    const [{ data: members, error: membersError }, { data: profiles, error: profilesError }] =
-      await Promise.all([
-        supabase
-          .from('conversation_participants')
-          .select('conversation_id, user_id')
-          .in('conversation_id', conversationIds),
-        supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url'),
-      ]);
+    const { data: members, error: membersError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id, user_id')
+      .in('conversation_id', conversationIds);
 
     if (membersError) throw membersError;
-    if (profilesError) throw profilesError;
 
-    const profilesById = new Map(
-      (profiles || []).map((profile) => [profile.id, profile as { display_name: string; avatar_url: string | null }])
-    );
+    const participantUserIds = Array.from(new Set((members || []).map((m) => m.user_id)));
+    let profilesById = new Map<string, { display_name: string; avatar_url: string | null }>();
+
+    if (participantUserIds.length > 0) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .in('id', participantUserIds);
+
+      if (profilesError) throw profilesError;
+
+      profilesById = new Map(
+        (profiles || []).map((profile) => [profile.id, profile as { display_name: string; avatar_url: string | null }])
+      );
+    }
 
     const membersByConversation = (members || []).reduce<Record<string, { user_id: string }[]>>((acc, member) => {
       const list = acc[member.conversation_id] || (acc[member.conversation_id] = []);

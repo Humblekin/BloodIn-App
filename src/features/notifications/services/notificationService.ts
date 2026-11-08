@@ -47,11 +47,17 @@ export const notificationService = {
   },
 
   async markAsRead(notificationId: string): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('notifications')
       .update({ is_read: true })
       .eq('id', notificationId);
 
+    if (user?.id) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 
@@ -79,11 +85,17 @@ export const notificationService = {
   },
 
   async deactivatePushToken(token: string): Promise<void> {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    let query = supabase
       .from('push_tokens')
       .update({ is_active: false })
       .eq('token', token);
 
+    if (user?.id) {
+      query = query.eq('user_id', user.id);
+    }
+
+    const { error } = await query;
     if (error) throw error;
   },
 

@@ -42,9 +42,30 @@ export const profileService = {
   // ─── Update ───────────────────────────────────────────
 
   async updateProfile(userId: string, updates: Partial<ProfileRow>): Promise<ProfileRow> {
+    // Whitelist allowable user-modifiable fields to prevent unauthorized privilege tampering
+    const allowedKeys: (keyof ProfileRow)[] = [
+      'display_name',
+      'bio',
+      'blood_group',
+      'avatar_url',
+      'is_available',
+      'donation_willingness',
+      'city_id',
+      'region_id',
+      'country_id',
+      'location_point',
+    ];
+
+    const sanitizedUpdates: Record<string, unknown> = {};
+    for (const key of allowedKeys) {
+      if (key in updates) {
+        sanitizedUpdates[key] = updates[key];
+      }
+    }
+
     const { data, error } = await supabase
       .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...sanitizedUpdates, updated_at: new Date().toISOString() })
       .eq('id', userId)
       .select()
       .single();
