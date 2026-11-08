@@ -56,12 +56,7 @@ CREATE POLICY recognitions_select_own ON public.donation_recognitions
 -- join_donation_programme — opt in, receive (or reuse) a card code
 -- ──────────────────────────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.join_donation_programme()
-RETURNS TABLE (
-    user_id UUID,
-    member_code TEXT,
-    joined_at TIMESTAMPTZ,
-    is_active BOOLEAN
-)
+RETURNS SETOF public.donation_program_members
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -84,7 +79,7 @@ BEGIN
         updated_at = now();
 
     RETURN QUERY
-    SELECT m.user_id, m.member_code, m.joined_at, m.is_active
+    SELECT *
     FROM public.donation_program_members m
     WHERE m.user_id = v_user;
 END;
@@ -102,6 +97,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
+#variable_conflict use_column
 BEGIN
     IF auth.uid() IS NULL THEN
         RAISE EXCEPTION 'Not authenticated';
@@ -126,14 +122,7 @@ CREATE OR REPLACE FUNCTION public.recognize_donation(
     p_location_label TEXT DEFAULT NULL,
     p_notes TEXT DEFAULT NULL
 )
-RETURNS TABLE (
-    id UUID,
-    donor_id UUID,
-    donation_date DATE,
-    recognised_by UUID,
-    location_label TEXT,
-    created_at TIMESTAMPTZ
-)
+RETURNS SETOF public.donation_recognitions
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, pg_temp
@@ -193,7 +182,7 @@ BEGIN
     );
 
     RETURN QUERY
-    SELECT r.id, r.donor_id, r.donation_date, r.recognised_by, r.location_label, r.created_at
+    SELECT *
     FROM public.donation_recognitions r
     WHERE r.id = v_id;
 END;
