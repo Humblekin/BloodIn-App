@@ -177,5 +177,7 @@ The checklist above tracks earlier feature implementation, not completion of the
 - [x] Add organization-scoped one-click staff/admin role changes and an RLS policy constrained by the existing database membership guard.
 - [x] Document the one-time trusted system-admin bootstrap and Edge Function deployment in `README.md`.
 - [x] Verify staff portal production build, app TypeScript, and existing overhaul tests.
+- [x] Keep the Netlify portal build independent of the Expo app by using a portal-local auth error helper; `npm --prefix health-worker-portal run build` passes.
 - [ ] Apply the new database migration and deploy the Edge Functions; local Supabase runtime tests are blocked because Docker/Podman is unavailable in this environment.
 - [ ] Bootstrap a test system-admin account and exercise facility/owner/staff creation end-to-end before production deployment.
+- [ ] Redeploy from GitHub and verify the Netlify site URL.

@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { getSafeSignInErrorMessage } from '../../src/features/auth/safeAuthError';
+import { getSafeSignInErrorMessage } from './lib/safeAuthError';
 
 const DEV_SKIP_MFA =
   import.meta.env.VITE_DEV_SKIP_MFA === 'true' &&
