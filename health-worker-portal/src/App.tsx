@@ -90,6 +90,28 @@ interface Enrollment {
   secret: string;
 }
 
+const ACCESS_LOAD_TIMEOUT_MS = 15_000;
+
+function withAccessLoadTimeout<T>(request: PromiseLike<T>, label: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((_, reject) => {
+    timeoutId = setTimeout(
+      () => reject(new Error(`${label} did not respond within 15 seconds.`)),
+      ACCESS_LOAD_TIMEOUT_MS
+    );
+  });
+
+  return Promise.race([Promise.resolve(request), timeout]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
+function getAccessLoadTimeoutMessage(error: unknown): string | null {
+  return error instanceof Error && error.message.includes('did not respond within 15 seconds.')
+    ? error.message
+    : null;
+}
+
 function parseLevels(raw: unknown): DonationLevel[] {
   if (!Array.isArray(raw)) return [];
 
@@ -135,6 +157,7 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [session, setSession] = useState<Session | null>(null);
   const [isSystemAdmin, setIsSystemAdmin] = useState(false);
+  const [dashboardAccessError, setDashboardAccessError] = useState<string | null>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -215,7 +238,10 @@ export default function App() {
   const loadOrgs = useCallback(async () => {
     setOrgsLoaded(false);
     try {
-      const { data, error } = await supabase.rpc('my_recording_organizations');
+      const { data, error } = await withAccessLoadTimeout(
+        supabase.rpc('my_recording_organizations'),
+        'Facility recording access'
+      );
       if (error) {
         setAuthError(error.message);
         return;
@@ -241,14 +267,17 @@ export default function App() {
     setApprovalOrgsLoaded(false);
 
     try {
-      const [orgsRes, settingsRes] = await Promise.all([
-        supabase.rpc('my_approval_organizations'),
-        supabase
-          .from('donation_programme_settings')
-          .select('levels')
-          .eq('id', true)
-          .maybeSingle(),
-      ]);
+      const [orgsRes, settingsRes] = await withAccessLoadTimeout(
+        Promise.all([
+          supabase.rpc('my_approval_organizations'),
+          supabase
+            .from('donation_programme_settings')
+            .select('levels')
+            .eq('id', true)
+            .maybeSingle(),
+        ]),
+        'Donation approval access'
+      );
 
       if (orgsRes.error) {
         setCardError(orgsRes.error.message);
@@ -266,6 +295,8 @@ export default function App() {
         setLevels(parseLevels((settingsRes.data as { levels: unknown } | null)?.levels));
       }
     } catch (error) {
+      const timeoutMessage = getAccessLoadTimeoutMessage(error);
+      if (timeoutMessage) setDashboardAccessError(timeoutMessage);
       setCardError(
         error instanceof Error ? error.message : 'Could not load donation approval access.'
       );
@@ -278,18 +309,24 @@ export default function App() {
     setManageOrgsLoaded(false);
 
     try {
-      const { data: authData } = await supabase.auth.getUser();
+      const { data: authData } = await withAccessLoadTimeout(
+        supabase.auth.getUser(),
+        'Facility management access'
+      );
       const userId = authData.user?.id;
       if (!userId) return;
 
-      const { data, error } = await supabase
-        .from('organization_members')
-        .select(
-          'organization_id, role, organizations!inner(id, name, org_type, verification_level, is_active)'
-        )
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .in('role', ['owner', 'admin']);
+      const { data, error } = await withAccessLoadTimeout(
+        supabase
+          .from('organization_members')
+          .select(
+            'organization_id, role, organizations!inner(id, name, org_type, verification_level, is_active)'
+          )
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .in('role', ['owner', 'admin']),
+        'Facility management access'
+      );
 
       if (error) {
         setStaffError(error.message);
@@ -329,6 +366,8 @@ export default function App() {
           : list[0]?.organization_id ?? ''
       );
     } catch (error) {
+      const timeoutMessage = getAccessLoadTimeoutMessage(error);
+      if (timeoutMessage) setDashboardAccessError(timeoutMessage);
       setStaffError(
         error instanceof Error ? error.message : 'Could not load facility management access.'
       );
@@ -342,9 +381,12 @@ export default function App() {
     setSystemFacilitiesError(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke('system-admin', {
-        body: { action: 'list_facilities' },
-      });
+      const { data, error } = await withAccessLoadTimeout(
+        supabase.functions.invoke('system-admin', {
+          body: { action: 'list_facilities' },
+        }),
+        'System administration access'
+      );
       if (error) {
         setSystemFacilitiesError(await getEdgeFunctionErrorMessage(error));
         setSystemFacilities([]);
@@ -367,6 +409,8 @@ export default function App() {
           : facilities.find((facility: SystemFacility) => facility.is_active)?.id ?? ''
       );
     } catch (error) {
+      const timeoutMessage = getAccessLoadTimeoutMessage(error);
+      if (timeoutMessage) setDashboardAccessError(timeoutMessage);
       setSystemFacilitiesError(
         error instanceof Error ? error.message : 'Could not load system administration access.'
       );
@@ -480,6 +524,7 @@ export default function App() {
     }
 
     if (DEV_SKIP_MFA) {
+      setDashboardAccessError(null);
       setPhase('dashboard');
       await Promise.all([
         loadOrgs(),
@@ -492,6 +537,7 @@ export default function App() {
 
     const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.currentLevel === 'aal2') {
+      setDashboardAccessError(null);
       setPhase('dashboard');
       await Promise.all([
         loadOrgs(),
@@ -1313,6 +1359,9 @@ export default function App() {
           </div>
         )}
         {authError && <div className="alert error">{authError}</div>}
+        {dashboardAccessError && (
+          <div className="alert error">{dashboardAccessError}</div>
+        )}
 
         {!orgsLoaded ||
         !approvalOrgsLoaded ||
@@ -1338,7 +1387,7 @@ export default function App() {
                   can then create accounts for staff at their organization. New facilities start
                   unverified; donation recording remains unavailable until verified.
                 </p>
-                {systemFacilitiesError && (
+                {systemFacilitiesError && !dashboardAccessError && (
                   <div className="alert error">{systemFacilitiesError}</div>
                 )}
                 {systemNotice && <div className="alert success">{systemNotice}</div>}
