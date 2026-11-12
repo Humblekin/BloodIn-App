@@ -287,11 +287,46 @@ export const messageService = {
     return { ...(data as MessageRow), media_url: mediaUrl };
   },
 
+  async deleteMessage(
+    message: Pick<MessageRow, 'id' | 'conversation_id' | 'sender_id'>
+  ): Promise<{ voiceCleanupFailed: boolean }> {
+    const { data: deleted, error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', message.id)
+      .eq('conversation_id', message.conversation_id)
+      .eq('sender_id', message.sender_id)
+      .eq('is_system_message', false)
+      .select('id, media_path')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!deleted) {
+      throw new Error('This message is no longer available to delete.');
+    }
+
+    if (!deleted.media_path) {
+      return { voiceCleanupFailed: false };
+    }
+
+    const { error: storageError } = await supabase.storage
+      .from('voice-notes')
+      .remove([deleted.media_path]);
+
+    if (storageError) {
+      console.warn('[Messaging] Message deleted, but voice cleanup failed:', storageError.message);
+      return { voiceCleanupFailed: true };
+    }
+
+    return { voiceCleanupFailed: false };
+  },
+
   // ─── Realtime ─────────────────────────────────────────
 
   subscribeToConversation(
     conversationId: string,
-    onMessage: (message: MessageRow) => void
+    onMessage: (message: MessageRow) => void,
+    onDelete?: (messageId: string) => void
   ) {
     return supabase
       .channel(`messages:${conversationId}`)
@@ -305,6 +340,19 @@ export const messageService = {
         },
         (payload) => {
           onMessage(payload.new as MessageRow);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const deletedId = (payload.old as { id?: string }).id;
+          if (deletedId) onDelete?.(deletedId);
         }
       )
       .subscribe();

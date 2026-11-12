@@ -181,3 +181,10 @@ The checklist above tracks earlier feature implementation, not completion of the
 - [ ] Apply the new database migration and deploy the Edge Functions; local Supabase runtime tests are blocked because Docker/Podman is unavailable in this environment.
 - [ ] Bootstrap a test system-admin account and exercise facility/owner/staff creation end-to-end before production deployment.
 - [ ] Redeploy from GitHub and verify the Netlify site URL.
+
+## Chat message deletion (2026-11-12)
+
+- [x] Add a delete control to the sender's own text and voice messages, with confirmation that deletion removes it for everyone in the conversation.
+- [x] Add message and voice-file delete policies; publish message deletions through Realtime.
+- [x] `node scripts/test_overhaul.js` passes. The app typecheck remains blocked by the existing `src/app/(auth)/welcome.tsx` width-prop error.
+- [ ] Apply `20261112000000_delete_own_chat_messages.sql` and verify text/audio deletion on both participants' devices.

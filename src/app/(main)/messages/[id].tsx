@@ -5,7 +5,7 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { BorderRadius, Spacing } from '@/constants/spacing';
-import { ArrowLeft, Send, Mic, Square, X, Play, Pause } from 'lucide-react-native';
+import { ArrowLeft, Send, Mic, Square, X, Play, Pause, Trash2 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   useAudioPlayer,
@@ -103,6 +103,7 @@ export default function ChatRoomScreen() {
   const [sending, setSending] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [sendingVoice, setSendingVoice] = useState(false);
+  const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
@@ -125,41 +126,47 @@ export default function ChatRoomScreen() {
     if (id && typeof id === 'string') {
       loadMessages();
       if (isRealId(id)) {
-        const sub: RealtimeChannel = messageService.subscribeToConversation(id, async (newMsg) => {
-          setMessages(prev => {
-            const exists = prev.some(m => m.id === newMsg.id);
-            if (exists) return prev;
-            return [...prev, newMsg];
-          });
-          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        const sub: RealtimeChannel = messageService.subscribeToConversation(
+          id,
+          async (newMsg) => {
+            setMessages(prev => {
+              const exists = prev.some(m => m.id === newMsg.id);
+              if (exists) return prev;
+              return [...prev, newMsg];
+            });
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-          if (newMsg.message_type === 'voice' && newMsg.media_path && !newMsg.media_url) {
-            try {
-              const url = await messageService.getSignedVoiceUrl(newMsg.media_path);
-              setMessages(prev =>
-                prev.map(m => (m.id === newMsg.id ? { ...m, media_url: url } : m))
-              );
-            } catch (err) {
-              console.warn('[Chat] Failed to sign voice note:', err);
-            }
-          }
-
-          // Realtime payloads do not carry the joined profile; backfill it
-          // so the sender name/avatar render correctly.
-          if (!newMsg.sender_profile && newMsg.sender_id !== session?.user?.id) {
-            try {
-              const profiles = await messageService.getProfiles([newMsg.sender_id]);
-              const profile = profiles.get(newMsg.sender_id);
-              if (profile) {
+            if (newMsg.message_type === 'voice' && newMsg.media_path && !newMsg.media_url) {
+              try {
+                const url = await messageService.getSignedVoiceUrl(newMsg.media_path);
                 setMessages(prev =>
-                  prev.map(m => m.id === newMsg.id ? { ...m, sender_profile: profile } : m)
+                  prev.map(m => (m.id === newMsg.id ? { ...m, media_url: url } : m))
                 );
+              } catch (err) {
+                console.warn('[Chat] Failed to sign voice note:', err);
               }
-            } catch (err) {
-              console.warn('[Chat] Failed to backfill sender profile:', err);
             }
+
+            // Realtime payloads do not carry the joined profile; backfill it
+            // so the sender name/avatar render correctly.
+            if (!newMsg.sender_profile && newMsg.sender_id !== session?.user?.id) {
+              try {
+                const profiles = await messageService.getProfiles([newMsg.sender_id]);
+                const profile = profiles.get(newMsg.sender_id);
+                if (profile) {
+                  setMessages(prev =>
+                    prev.map(m => m.id === newMsg.id ? { ...m, sender_profile: profile } : m)
+                  );
+                }
+              } catch (err) {
+                console.warn('[Chat] Failed to backfill sender profile:', err);
+              }
+            }
+          },
+          (deletedMessageId) => {
+            setMessages(prev => prev.filter(message => message.id !== deletedMessageId));
           }
-        });
+        );
 
         return () => {
           supabase.removeChannel(sub);
@@ -198,6 +205,46 @@ export default function ChatRoomScreen() {
       Alert.alert('Message Failed', err?.message || 'You must have an accepted connection to send messages.');
     } finally {
       setSending(false);
+    }
+  };
+
+  const confirmDeleteMessage = (message: MessageRow) => {
+    Alert.alert(
+      'Delete message?',
+      'This will remove the message from this conversation for everyone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => void deleteMessage(message),
+        },
+      ]
+    );
+  };
+
+  const deleteMessage = async (message: MessageRow) => {
+    if (deletingMessageId) return;
+
+    setDeletingMessageId(message.id);
+    try {
+      const result = await messageService.deleteMessage(message);
+      setMessages(prev => prev.filter(item => item.id !== message.id));
+
+      if (result.voiceCleanupFailed) {
+        Alert.alert(
+          'Message deleted',
+          'The voice message was removed from the conversation, but its audio file could not be cleaned up.'
+        );
+      }
+    } catch (err) {
+      console.error('[Chat] Failed to delete message:', err);
+      Alert.alert(
+        'Unable to delete message',
+        err instanceof Error ? err.message : 'Please try again.'
+      );
+    } finally {
+      setDeletingMessageId(null);
     }
   };
 
@@ -300,9 +347,26 @@ export default function ChatRoomScreen() {
                 {item.content}
               </Text>
             )}
-            <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextThem]}>
-              {time}
-            </Text>
+            <View style={styles.messageFooter}>
+              <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextThem]}>
+                {time}
+              </Text>
+              {isMe && !item.is_system_message && (
+                <TouchableOpacity
+                  style={styles.deleteMessageButton}
+                  onPress={() => confirmDeleteMessage(item)}
+                  disabled={deletingMessageId !== null}
+                  accessibilityRole="button"
+                  accessibilityLabel="Delete message"
+                >
+                  {deletingMessageId === item.id ? (
+                    <ActivityIndicator size="small" color={Colors.white} />
+                  ) : (
+                    <Trash2 size={14} color={Colors.white} />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </View>
@@ -553,6 +617,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     marginTop: 4,
     alignSelf: 'flex-end',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.xs,
+  },
+  deleteMessageButton: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   timeTextMe: {
     color: 'rgba(255,255,255,0.7)',
