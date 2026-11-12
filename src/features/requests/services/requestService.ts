@@ -13,7 +13,7 @@ export interface BloodRequestCreate {
   additional_notes?: string;
   latitude: number;
   longitude: number;
-  expires_at: string;
+  expires_at: string | null;
 }
 
 export interface BloodRequestRow {
@@ -24,10 +24,10 @@ export interface BloodRequestRow {
   hospital_name: string;
   patient_name: string | null;
   units_required: number;
-  contact_number: string | null;
+  contact_number?: string | null;
   additional_notes: string | null;
   status: 'active' | 'fulfilled' | 'cancelled' | 'expired';
-  expires_at: string;
+  expires_at: string | null;
   created_at: string;
   updated_at: string;
   // New columns from 20260831000002
@@ -55,6 +55,15 @@ export interface RequestResponseRow {
   responder_profile?: { display_name: string; avatar_url: string | null; blood_group: string | null };
 }
 
+export function isBloodRequestExpired(
+  request: Pick<BloodRequestRow, 'status' | 'expires_at'>,
+  now = Date.now()
+): boolean {
+  if (request.status === 'expired' || !request.expires_at) return true;
+  const expirationTime = Date.parse(request.expires_at);
+  return !Number.isFinite(expirationTime) || expirationTime <= now;
+}
+
 export const requestService = {
   // ─── Fetch ────────────────────────────────────────────
 
@@ -63,6 +72,7 @@ export const requestService = {
     limit?: number;
     offset?: number;
   }): Promise<BloodRequestRow[]> {
+    const now = new Date().toISOString();
     let query = supabase
       .from('blood_requests')
       .select(`
@@ -70,6 +80,7 @@ export const requestService = {
         requester_profile:profiles!blood_requests_requester_id_fkey(display_name, avatar_url)
       `)
       .eq('status', 'active')
+      .gt('expires_at', now)
       .order('urgency_level', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(options?.limit ?? 20);
@@ -116,7 +127,20 @@ export const requestService = {
       if (error.code === 'PGRST116') return null;
       throw error;
     }
-    return data as BloodRequestRow;
+
+    const request = data as BloodRequestRow;
+    const { data: contact, error: contactError } = await supabase
+      .from('blood_request_contacts')
+      .select('contact_number')
+      .eq('request_id', requestId)
+      .maybeSingle();
+
+    if (contactError) throw contactError;
+
+    request.contact_number =
+      (contact as { contact_number: string } | null)?.contact_number ?? null;
+
+    return request;
   },
 
   async getMyRequests(userId: string): Promise<BloodRequestRow[]> {
@@ -151,7 +175,6 @@ export const requestService = {
         hospital_name: input.hospital_name,
         patient_name: input.patient_name || null,
         units_required: input.units_required,
-        contact_number: input.contact_number || null,
         additional_notes: input.additional_notes || null,
         location_point: `POINT(${input.longitude} ${input.latitude})`,
         expires_at: input.expires_at,
@@ -161,7 +184,26 @@ export const requestService = {
       .single();
 
     if (error) throw error;
-    return data as BloodRequestRow;
+
+    const request = data as BloodRequestRow;
+    const contactNumber = input.contact_number?.trim();
+
+    if (contactNumber) {
+      const { error: contactError } = await supabase
+        .from('blood_request_contacts')
+        .insert({ request_id: request.id, contact_number: contactNumber });
+
+      if (contactError) {
+        await supabase.from('blood_requests').delete().eq('id', request.id);
+        throw contactError;
+      }
+
+      request.contact_number = contactNumber;
+    } else {
+      request.contact_number = null;
+    }
+
+    return request;
   },
 
   // ─── Update ───────────────────────────────────────────
@@ -175,6 +217,10 @@ export const requestService = {
       .from('blood_requests')
       .update({ status })
       .eq('id', requestId);
+
+    if (status === 'active') {
+      query = query.gt('expires_at', new Date().toISOString());
+    }
 
     if (user?.id) {
       query = query.eq('requester_id', user.id);
@@ -205,6 +251,20 @@ export const requestService = {
   },
 
   async offerToHelp(requestId: string, responderId: string, message?: string): Promise<void> {
+    const { data: request, error: requestError } = await supabase
+      .from('blood_requests')
+      .select('status, expires_at')
+      .eq('id', requestId)
+      .maybeSingle();
+
+    if (requestError) throw requestError;
+    if (!request || isBloodRequestExpired(request as Pick<BloodRequestRow, 'status' | 'expires_at'>)) {
+      throw new Error('This request has expired and is no longer accepting offers.');
+    }
+    if (request.status !== 'active') {
+      throw new Error('This request is no longer accepting offers.');
+    }
+
     const { error } = await supabase
       .from('request_responses')
       .insert({
@@ -214,6 +274,28 @@ export const requestService = {
       });
 
     if (error) throw error;
+
+    const { error: conversationError } = await supabase.rpc('create_request_conversation', {
+      p_request_id: requestId,
+      p_responder_id: responderId,
+    });
+
+    if (conversationError) {
+      console.warn('[Requests] Could not open the request chat:', conversationError.message);
+    }
+  },
+
+  async getOrCreateRequestConversation(
+    requestId: string,
+    responderId: string
+  ): Promise<string> {
+    const { data, error } = await supabase.rpc('create_request_conversation', {
+      p_request_id: requestId,
+      p_responder_id: responderId,
+    });
+
+    if (error) throw error;
+    return data as string;
   },
 
   async updateResponseStatus(

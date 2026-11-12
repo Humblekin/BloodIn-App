@@ -121,3 +121,36 @@
 4. Extend the visual system to remaining existing screens without removing functionality.
 5. Run available tests and type checks; launch the app and capture/compare actual screens when the environment supports it.
 6. Record completed screens, tests, known gaps, and the exact next task in `task.md`.
+
+## 7. Pilot Plan — Tamale (2026-11-10)
+
+### Pilot location and facility
+- **Pilot city:** Tamale, Northern Region, Ghana.
+- **Pilot facility:** Tamale Teaching Hospital (`org_type = hospital`), located in Tamale.
+- **Ownership:** unclaimed — no `created_by`, owner, or staff until named staff are approved.
+- **Verification:** `verification_level = unverified`. The facility becomes verified only after a BloodIn admin approves named staff with proof from the hospital. Until then it cannot appear in recording or card-approval flows, which require a verified/premium hospital or blood-bank leader.
+- **Database status:** seeded in the live database on 2026-11-10 as an unclaimed, unverified hospital with no owner or staff.
+
+### Other seeded institutions
+- Korle-Bu Blood Bank, Ghana Red Cross Society, 37 Military Hospital Blood Centre, and Komfo Anokye Teaching Hospital remain unclaimed with no owner.
+- They are **not part of the pilot** and must not be treated as verified partners.
+
+### Development and demo data
+- Maintain a **"BloodIn Test Hospital"** (hospital) with test staff accounts for development and demos.
+- The test hospital and its staff are for dev/demo only and must never issue real donor cards or hold real donation records.
+- Seed demo drives, campaigns, and test users around **Tamale** so pilot flows match the real city.
+- **Live test data (2026-11-10):** BloodIn Test Hospital (verified, Tamale) with one test staff account as owner/recorder, plus a test donor with card code `BLD-TEST-0001`, O+, Tamale location, and demo donation history. Test accounts use the reserved `.test` email domain and must be removed or disabled before real launch.
+
+### Donation card levels
+- Default special-card levels: **3, 6, 10, and 20** recognised donations (`donation_programme_settings.levels`).
+- The **first card is issued at 3 donations**; higher levels remain configurable per programme settings.
+
+### Verification and staff onboarding
+1. The hospital nominates named staff with proof of affiliation.
+2. A BloodIn admin verifies the hospital and the named staff.
+3. Verified staff are added as `organization_members` and granted `can_record_donations`.
+4. Only then does the facility appear in `my_recording_organizations` and `my_approval_organizations`.
+
+### Implementation status
+- Pilot and demo data seeded in the live database on 2026-11-10. Application code is unchanged.
+- Test staff and test donor logins, card lookup, recording, today's records, and the same-day duplicate block were verified through the live Auth/REST APIs.

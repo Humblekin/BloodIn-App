@@ -33,6 +33,7 @@ export const signUpSchema = z.object({
   password: passwordSchema,
   confirmPassword: z.string(),
   accountType: z.enum(['individual', 'community_admin', 'organization_admin']),
+  ageConfirmed: z.literal(true, { message: 'You must confirm that you are at least 18 years old' }),
   safetyAcknowledged: z.literal(true, { message: 'You must acknowledge the safety notice' }),
 }).refine((data) => data.password === data.confirmPassword, {
   message: 'Passwords do not match',

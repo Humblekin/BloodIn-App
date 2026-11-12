@@ -29,6 +29,10 @@ export default function CommunityProfileScreen() {
   const [announcements, setAnnouncements] = useState<AnnouncementRow[]>([]);
   const [posts, setPosts] = useState<PostRow[]>([]);
   const [members, setMembers] = useState<CommunityMemberRow[]>([]);
+  const [myMembership, setMyMembership] = useState<{
+    role: 'admin' | 'moderator' | 'member';
+    status: 'pending' | 'active' | 'suspended' | 'left';
+  } | null>(null);
   const [isFetching, setIsFetching] = useState(true);
 
   useEffect(() => {
@@ -46,14 +50,18 @@ export default function CommunityProfileScreen() {
       const comm = isUuid ? await fetchCommunityById(id) : await communityService.getCommunityById(id);
       setCommunity(comm);
       if (comm) {
-        const [anns, mems, commPosts] = await Promise.all([
+        const [anns, mems, commPosts, mine] = await Promise.all([
           isUuid ? fetchAnnouncements(comm.id) : communityService.getAnnouncements(comm.id),
           isUuid ? fetchMembers(comm.id) : communityService.getMembers(comm.id),
           postService.getCommunityPosts(comm.id, { userId: session?.user?.id }),
+          session?.user?.id
+            ? communityService.getMyMembership(comm.id, session.user.id)
+            : Promise.resolve(null),
         ]);
         setAnnouncements(anns);
         setMembers(mems);
         setPosts(commPosts);
+        setMyMembership(mine);
       }
     } catch (err) {
       console.error(err);
@@ -62,10 +70,10 @@ export default function CommunityProfileScreen() {
     }
   };
 
-  const myMembership = session?.user.id
-    ? members.find((m) => m.user_id === session.user.id && m.status === 'active')
-    : undefined;
-  const canManage = !!myMembership && (myMembership.role === 'admin' || myMembership.role === 'moderator');
+  const isActiveMember = myMembership?.status === 'active';
+  const isPendingMember = myMembership?.status === 'pending';
+  const canManage =
+    isActiveMember && (myMembership?.role === 'admin' || myMembership?.role === 'moderator');
 
   const handleJoin = async () => {
     if (!session?.user.id || !community) return;
@@ -90,22 +98,27 @@ export default function CommunityProfileScreen() {
       Alert.alert('Demo community', 'This is a sample community. Leaving works for real communities.');
       return;
     }
-    Alert.alert('Leave community', `Leave "${community.name}"? You can rejoin anytime.`, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Leave',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await leaveCommunity(community.id, session.user.id);
-            Alert.alert('Left', 'You left this community.');
-            loadData();
-          } catch (err: any) {
-            Alert.alert('Error', err.message || 'Failed to leave');
-          }
+    const pending = myMembership?.status === 'pending';
+    Alert.alert(
+      pending ? 'Cancel request' : 'Leave community',
+      pending ? 'Withdraw your request to join this community?' : `Leave "${community.name}"? You can rejoin anytime.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: pending ? 'Withdraw' : 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await leaveCommunity(community.id, session.user.id);
+              Alert.alert(pending ? 'Request withdrawn' : 'Left', pending ? 'Your request was withdrawn.' : 'You left this community.');
+              loadData();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to leave');
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const handleToggleReaction = useCallback((postId: string) => {
@@ -146,11 +159,7 @@ export default function CommunityProfileScreen() {
     );
   }
 
-  const joinLabel = myMembership
-    ? 'Member'
-    : community.join_policy === 'open'
-      ? 'Join'
-      : 'Request to Join';
+  const joinLabel = community.join_policy === 'open' ? 'Join' : 'Request to Join';
 
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background.DEFAULT }}>
@@ -171,7 +180,7 @@ export default function CommunityProfileScreen() {
           <View style={styles.headerRow}>
             <Avatar name={community.name} imageUrl={community.logo_url || undefined} size="2xl" showBorder style={styles.avatar} />
             <View style={styles.actions}>
-              {myMembership && canManage && (
+              {isActiveMember && canManage && (
                 <Button
                   title="Manage"
                   size="sm"
@@ -181,9 +190,18 @@ export default function CommunityProfileScreen() {
                   disabled={loading}
                 />
               )}
-              {myMembership ? (
+              {isActiveMember ? (
                 <Button
                   title="Leave"
+                  size="sm"
+                  variant="outline"
+                  leftIcon={<LogOut size={16} color={Colors.semantic.critical.DEFAULT} />}
+                  onPress={handleLeave}
+                  disabled={loading}
+                />
+              ) : isPendingMember ? (
+                <Button
+                  title="Cancel request"
                   size="sm"
                   variant="outline"
                   leftIcon={<LogOut size={16} color={Colors.semantic.critical.DEFAULT} />}
@@ -210,7 +228,10 @@ export default function CommunityProfileScreen() {
               {community.is_verified && (
                 <Badge label="Verified" variant="success" leftIcon={<ShieldCheck size={12} color={Colors.semantic.success.dark} />} />
               )}
-              {myMembership && (
+              {isPendingMember && (
+                <Badge label="Pending approval" variant="warning" />
+              )}
+              {isActiveMember && myMembership && (
                 <Badge
                   label={myMembership.role === 'admin' ? 'Admin' : myMembership.role === 'moderator' ? 'Moderator' : 'Member'}
                   variant="success"

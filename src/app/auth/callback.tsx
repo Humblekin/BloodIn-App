@@ -19,7 +19,7 @@ import {
   processAuthCallbackUrl,
 } from '../../features/auth/authCallback';
 import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, LineHeight } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
 
 type Phase = 'working' | 'signed-in' | 'confirmed-no-session' | 'error';
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     color: Colors.dark.secondary,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: LineHeight.base,
   },
   button: {
     marginTop: Spacing.sm,

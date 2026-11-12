@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: FontFamily.semibold,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.base,
     color: Colors.dark.DEFAULT,
     marginBottom: 2,
   },

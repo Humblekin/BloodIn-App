@@ -24,7 +24,7 @@ import { useBloodRequests } from '@/features/requests/hooks/useBloodRequests';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
 import type { BloodRequestRow, RequestResponseRow } from '@/features/requests/services/requestService';
-import { requestService } from '@/features/requests/services/requestService';
+import { isBloodRequestExpired, requestService } from '@/features/requests/services/requestService';
 import { isRealId } from '@/utils/ids';
 
 export default function RequestDetailScreen() {
@@ -40,6 +40,8 @@ export default function RequestDetailScreen() {
   const [offerVisible, setOfferVisible] = useState(false);
   const [offerMessage, setOfferMessage] = useState('');
   const [sendingOffer, setSendingOffer] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
+  const [currentTime, setCurrentTime] = useState(Date.now());
 
   const photoWidth = Math.min(width * 0.56, 224);
   const photoHeight = Math.min(height * 0.38, 324);
@@ -48,6 +50,11 @@ export default function RequestDetailScreen() {
   useEffect(() => {
     void loadData();
   }, [id]);
+
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   const loadData = async () => {
     if (!id || typeof id !== 'string') return;
@@ -101,6 +108,30 @@ export default function RequestDetailScreen() {
 
   const isOwner = session?.user.id === request?.requester_id;
   const hasOffered = responses.some((response) => response.responder_id === session?.user.id);
+  const isExpired = request ? isBloodRequestExpired(request, currentTime) : false;
+  const canRespond = request?.status === 'active' && !isExpired;
+
+  const openChat = async () => {
+    if (!session?.user.id || !request) return;
+    setOpeningChat(true);
+    try {
+      const conversationId = await requestService.getOrCreateRequestConversation(
+        request.id,
+        session.user.id
+      );
+      const requesterName = request.requester_profile?.display_name ?? 'Requester';
+      router.push(
+        `/(main)/messages/${conversationId}?name=${encodeURIComponent(requesterName)}`
+      );
+    } catch (error) {
+      Alert.alert(
+        'Could not open chat',
+        error instanceof Error ? error.message : 'Please try again.'
+      );
+    } finally {
+      setOpeningChat(false);
+    }
+  };
 
   if (isFetching) {
     return (
@@ -169,7 +200,16 @@ export default function RequestDetailScreen() {
           {request.contact_number ? (
             <DetailRow icon={<Phone size={18} color={colors.primary.default} />} label="Contact" value={request.contact_number} />
           ) : null}
-          <DetailRow icon={<Clock size={18} color={colors.primary.default} />} label="Expires" value={new Date(request.expires_at).toLocaleDateString()} />
+          <DetailRow
+            icon={<Clock size={18} color={colors.primary.default} />}
+            label="Needed by"
+            value={request.expires_at ? new Date(request.expires_at).toLocaleString() : 'No deadline set'}
+          />
+          {(isExpired || request.status !== 'active') && (
+            <Text style={styles.requestStatus}>
+              {isExpired ? 'Expired' : `Request ${request.status}`}
+            </Text>
+          )}
           {request.additional_notes ? (
             <View style={styles.notesContainer}>
               <Text style={styles.detailLabel}>Additional notes</Text>
@@ -198,6 +238,15 @@ export default function RequestDetailScreen() {
               </View>
             ))}
           </View>
+        ) : !canRespond ? (
+          <View style={styles.expiredNotice}>
+            <Clock size={17} color={colors.status.warning} />
+            <Text style={styles.expiredNoticeText}>
+              {isExpired
+                ? 'This request has expired and is no longer accepting offers.'
+                : 'This request is no longer accepting offers.'}
+            </Text>
+          </View>
         ) : (
           <View style={styles.disclaimerBox}>
             <AlertCircle size={16} color={colors.status.warning} />
@@ -208,22 +257,41 @@ export default function RequestDetailScreen() {
         )}
       </ScrollView>
 
-      {!isOwner ? (
+      {!isOwner && (hasOffered || canRespond) ? (
         <View style={[styles.bottomAction, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-          <Pressable
-            style={[styles.donateAction, hasOffered && styles.donateActionComplete, loading && styles.disabledButton]}
-            onPress={handleOfferHelp}
-            disabled={loading || hasOffered}
-            accessibilityRole="button"
-          >
-            <View style={styles.actionIcon}>
-              <Droplet size={17} color={colors.primary.default} />
+          {hasOffered ? (
+            <View style={styles.afterOfferWrap}>
+              <View style={styles.offerSentChip}>
+                <Check size={14} color={colors.status.success} />
+                <Text style={styles.offerSentText}>Offer sent</Text>
+              </View>
+              <Pressable
+                style={[styles.messageAction, openingChat && styles.disabledButton]}
+                onPress={() => void openChat()}
+                disabled={openingChat}
+                accessibilityRole="button"
+              >
+                <Text style={styles.messageActionText}>
+                  {openingChat ? 'Opening…' : 'Message requester'}
+                </Text>
+              </Pressable>
             </View>
-            <Text style={styles.donateActionText}>{hasOffered ? 'Offer Sent' : 'Donate Now'}</Text>
-            <View style={styles.actionIcon}>
-              <Check size={17} color={colors.primary.default} />
-            </View>
-          </Pressable>
+          ) : (
+            <Pressable
+              style={[styles.donateAction, loading && styles.disabledButton]}
+              onPress={handleOfferHelp}
+              disabled={loading}
+              accessibilityRole="button"
+            >
+              <View style={styles.actionIcon}>
+                <Droplet size={17} color={colors.primary.default} />
+              </View>
+              <Text style={styles.donateActionText}>Donate Now</Text>
+              <View style={styles.actionIcon}>
+                <Check size={17} color={colors.primary.default} />
+              </View>
+            </Pressable>
+          )}
         </View>
       ) : null}
 
@@ -332,13 +400,20 @@ const styles = StyleSheet.create({
   responderName: { fontFamily: typography.fonts.medium, fontSize: typography.sizes.sm, color: colors.text.primary, flex: 1 },
   responseStatus: { color: colors.status.success, fontFamily: typography.fonts.semiBold, fontSize: typography.sizes.xs },
   responseMessage: { fontFamily: typography.fonts.regular, fontSize: typography.sizes.sm, color: colors.text.secondary, backgroundColor: colors.background.default, padding: 8, borderRadius: 8 },
+  requestStatus: { color: colors.status.warning, fontFamily: typography.fonts.semiBold, fontSize: typography.sizes.sm, marginBottom: 8 },
+  expiredNotice: { minHeight: 52, borderRadius: 12, backgroundColor: colors.status.warning + '12', paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  expiredNoticeText: { flex: 1, color: colors.status.warning, fontFamily: typography.fonts.semiBold, fontSize: typography.sizes.sm, textAlign: 'center' },
   disclaimerBox: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: colors.status.warning + '10', padding: 12, borderRadius: 8, marginHorizontal: 16, marginBottom: 16 },
   disclaimerText: { flex: 1, marginLeft: 8, fontFamily: typography.fonts.regular, fontSize: typography.sizes.xs, color: colors.status.warning, lineHeight: 18 },
   bottomAction: { backgroundColor: colors.background.card, paddingHorizontal: 16, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border.light },
   donateAction: { minHeight: 52, borderRadius: 28, backgroundColor: colors.primary.default, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  donateActionComplete: { opacity: 0.8 },
   actionIcon: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.background.card, alignItems: 'center', justifyContent: 'center' },
   donateActionText: { flex: 1, color: colors.text.inverse, fontFamily: typography.fonts.semiBold, fontSize: typography.sizes.md, textAlign: 'center' },
+  afterOfferWrap: { gap: 8 },
+  offerSentChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  offerSentText: { fontFamily: typography.fonts.medium, fontSize: typography.sizes.xs, color: colors.status.success },
+  messageAction: { minHeight: 52, borderRadius: 28, backgroundColor: colors.primary.default, alignItems: 'center', justifyContent: 'center' },
+  messageActionText: { color: colors.text.inverse, fontFamily: typography.fonts.semiBold, fontSize: typography.sizes.md },
   disabledButton: { opacity: 0.5 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
   modalContainer: { backgroundColor: colors.background.card, borderRadius: 16, padding: 20 },

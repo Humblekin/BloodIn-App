@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   composerPlaceholder: {
     fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.base,
     color: Colors.dark.tertiary,
   },
 });

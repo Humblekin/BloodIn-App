@@ -80,12 +80,13 @@ export default function RootLayout() {
     if (!fontsLoaded || !isInitialized) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const isPublicLegalRoute = segments[0] === 'legal';
     const isPasswordResetRoute = inAuthGroup && (segments as string[])[1] === 'reset-password';
 
     if (user && inAuthGroup && !isPasswordResetRoute) {
       // If user is signed in and trying to access auth screens, redirect to main
       router.replace('/(main)/(tabs)');
-    } else if (!user && !inAuthGroup) {
+    } else if (!user && !inAuthGroup && !isPublicLegalRoute) {
       // If user is not signed in and trying to access main screens, redirect to auth
       router.replace('/(auth)/welcome');
     }
@@ -106,6 +107,7 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="(main)" options={{ headerShown: false }} />
+        <Stack.Screen name="legal" options={{ headerShown: false }} />
       </Stack>
     </>
   );

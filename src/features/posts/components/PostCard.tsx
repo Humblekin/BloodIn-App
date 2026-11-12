@@ -31,7 +31,7 @@ import { postService, type PostRow } from '../services/postService';
 import { isRealId } from '@/utils/ids';
 import { POST_PURPOSE_LABEL } from '../constants/posts';
 import { Colors } from '@/constants/colors';
-import { FontFamily, FontSize } from '@/constants/typography';
+import { FontFamily, FontSize, LineHeight } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 
 const PURPOSE_ICONS: Record<PostRow['purpose'], LucideIcon> = {
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   content: {
     fontFamily: FontFamily.regular,
     fontSize: FontSize.base,
-    lineHeight: 22,
+    lineHeight: LineHeight.base,
     color: Colors.dark.DEFAULT,
   },
   tags: {

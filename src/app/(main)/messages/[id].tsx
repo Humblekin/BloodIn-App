@@ -5,8 +5,17 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { BorderRadius, Spacing } from '@/constants/spacing';
-import { ArrowLeft, Send } from 'lucide-react-native';
+import { ArrowLeft, Send, Mic, Square, X, Play, Pause } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  useAudioPlayer,
+  useAudioPlayerStatus,
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+} from 'expo-audio';
 import { useMessages } from '@/features/messages/hooks/useMessages';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { messageService, MessageRow } from '@/features/messages/services/messageService';
@@ -14,17 +23,91 @@ import { supabase } from '@/lib/supabase/client';
 import { isRealId } from '@/utils/ids';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
+function formatDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${String(secs).padStart(2, '0')}`;
+}
+
+function VoiceNotePlayer({
+  url,
+  duration,
+  isMe,
+}: {
+  url: string | null;
+  duration: number | null;
+  isMe: boolean;
+}) {
+  const player = useAudioPlayer(url);
+  const status = useAudioPlayerStatus(player);
+
+  const toggle = () => {
+    if (!url) return;
+    if (status.playing) {
+      player.pause();
+      return;
+    }
+    if (status.didJustFinish) {
+      void player.seekTo(0);
+    }
+    player.play();
+  };
+
+  const total = duration ?? status.duration ?? 0;
+  const current = status.currentTime ?? 0;
+  const progress = total > 0 ? Math.min(1, current / total) : 0;
+  const progressWidth = `${Math.round(progress * 100)}%` as `${number}%`;
+
+  return (
+    <TouchableOpacity
+      style={styles.voiceRow}
+      onPress={toggle}
+      accessibilityRole="button"
+      accessibilityLabel={status.playing ? 'Pause voice note' : 'Play voice note'}
+    >
+      <View style={[styles.voicePlay, isMe ? styles.voicePlayMe : styles.voicePlayThem]}>
+        {status.playing ? (
+          <Pause size={16} color={isMe ? Colors.primary.DEFAULT : Colors.white} />
+        ) : (
+          <Play size={16} color={isMe ? Colors.primary.DEFAULT : Colors.white} />
+        )}
+      </View>
+      <View style={styles.voiceTrackWrap}>
+        <View style={[styles.voiceTrack, isMe ? styles.voiceTrackMe : styles.voiceTrackThem]}>
+          <View
+            style={[
+              styles.voiceFill,
+              isMe ? styles.voiceFillMe : styles.voiceFillThem,
+              { width: progressWidth },
+            ]}
+          />
+        </View>
+        <Text style={[styles.voiceDuration, isMe ? styles.timeTextMe : styles.timeTextThem]}>
+          {formatDuration(current > 0 ? current : total)}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function ChatRoomScreen() {
   const { id, name, avatar } = useLocalSearchParams<{ id: string; name?: string; avatar?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { session } = useAuthStore();
   const { fetchMessages, sendMessage, loading } = useMessages();
-  
+
   const [messages, setMessages] = useState<MessageRow[]>([]);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [sendingVoice, setSendingVoice] = useState(false);
   const flatListRef = useRef<FlatList>(null);
+
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(recorder);
+
   const contactName = name || 'Conversation';
 
   const loadMessages = async () => {
@@ -50,6 +133,17 @@ export default function ChatRoomScreen() {
           });
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
+          if (newMsg.message_type === 'voice' && newMsg.media_path && !newMsg.media_url) {
+            try {
+              const url = await messageService.getSignedVoiceUrl(newMsg.media_path);
+              setMessages(prev =>
+                prev.map(m => (m.id === newMsg.id ? { ...m, media_url: url } : m))
+              );
+            } catch (err) {
+              console.warn('[Chat] Failed to sign voice note:', err);
+            }
+          }
+
           // Realtime payloads do not carry the joined profile; backfill it
           // so the sender name/avatar render correctly.
           if (!newMsg.sender_profile && newMsg.sender_id !== session?.user?.id) {
@@ -74,13 +168,21 @@ export default function ChatRoomScreen() {
     }
   }, [id]);
 
+  useEffect(() => {
+    return () => {
+      if (recorder.isRecording) {
+        void recorder.stop();
+      }
+    };
+  }, [recorder]);
+
   const handleSend = async () => {
     if (sending || !inputText.trim() || !session?.user.id || typeof id !== 'string') return;
-    
+
     const content = inputText.trim();
     setInputText(''); // optimistic clear
     setSending(true);
-    
+
     try {
       if (isRealId(id)) {
         const sent = await sendMessage(id, session.user.id, content);
@@ -99,6 +201,65 @@ export default function ChatRoomScreen() {
     }
   };
 
+  const startRecording = async () => {
+    if (isRecording || sendingVoice) return;
+    try {
+      const permission = await requestRecordingPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Microphone needed', 'Allow microphone access to send a voice note.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setIsRecording(true);
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Could not start recording', 'Please try again.');
+    }
+  };
+
+  const cancelRecording = async () => {
+    setIsRecording(false);
+    try {
+      await recorder.stop();
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+    } catch (err) {
+      console.warn('[Chat] Failed to cancel recording:', err);
+    }
+  };
+
+  const stopAndSendVoice = async () => {
+    if (!isRecording || !session?.user.id || typeof id !== 'string' || !isRealId(id)) return;
+
+    const duration = recorderState.durationMillis / 1000;
+    setIsRecording(false);
+    setSendingVoice(true);
+
+    try {
+      await recorder.stop();
+      const uri = recorder.uri;
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+
+      if (!uri) {
+        throw new Error('Recording was not saved.');
+      }
+      if (duration < 1) {
+        Alert.alert('Too short', 'Record a little longer and try again.');
+        return;
+      }
+
+      const sent = await messageService.sendVoiceMessage(id, session.user.id, uri, duration);
+      setMessages(prev => (prev.some(m => m.id === sent.id) ? prev : [...prev, sent]));
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert('Voice note failed', err?.message || 'Please try again.');
+    } finally {
+      setSendingVoice(false);
+    }
+  };
+
   const renderMessage = ({ item, index }: { item: MessageRow; index: number }) => {
     const isMe = item.sender_id === session?.user?.id;
     const time = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -108,7 +269,7 @@ export default function ChatRoomScreen() {
     const dateLabel = currentDate.toDateString() === new Date().toDateString()
       ? `Today, ${currentDate.toLocaleDateString([], { month: 'short', day: 'numeric' })}`
       : currentDate.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    
+
     return (
       <View>
         {showDate && (
@@ -128,9 +289,17 @@ export default function ChatRoomScreen() {
             />
           )}
           <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleThem]}>
-            <Text style={[styles.messageText, isMe ? styles.messageTextMe : styles.messageTextThem]}>
-              {item.content}
-            </Text>
+            {item.message_type === 'voice' ? (
+              <VoiceNotePlayer
+                url={item.media_url ?? null}
+                duration={item.duration_seconds}
+                isMe={isMe}
+              />
+            ) : (
+              <Text style={[styles.messageText, isMe ? styles.messageTextMe : styles.messageTextThem]}>
+                {item.content}
+              </Text>
+            )}
             <Text style={[styles.timeText, isMe ? styles.timeTextMe : styles.timeTextThem]}>
               {time}
             </Text>
@@ -156,8 +325,8 @@ export default function ChatRoomScreen() {
           <Text style={styles.contactName} numberOfLines={1}>{contactName}</Text>
         </View>
       </View>
-      
-      <KeyboardAvoidingView 
+
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
@@ -177,35 +346,80 @@ export default function ChatRoomScreen() {
             onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
             ListEmptyComponent={
               <View style={styles.emptyConversation}>
-                <Text style={styles.emptyConversationText}>Start the conversation by sending a message.</Text>
+                <Text style={styles.emptyConversationText}>
+                  Start the conversation with a message or a voice note.
+                </Text>
               </View>
             }
           />
         )}
-        
+
         <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, Spacing.sm) }]}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              placeholder="Type here..."
-              placeholderTextColor={Colors.dark.tertiary}
-              value={inputText}
-              onChangeText={setInputText}
-              style={styles.composerInput}
-              multiline
-              editable={!sending}
-              accessibilityLabel="Message"
-              underlineColorAndroid="transparent"
-            />
-          </View>
-          <TouchableOpacity 
-            style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
-            onPress={handleSend}
-            disabled={!inputText.trim() || sending}
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-          >
-            {sending ? <ActivityIndicator size="small" color={Colors.white} /> : <Send size={18} color={Colors.white} />}
-          </TouchableOpacity>
+          {isRecording ? (
+            <>
+              <View style={styles.recordingBar}>
+                <View style={styles.recordingDot} />
+                <Text style={styles.recordingText}>
+                  {formatDuration(recorderState.durationMillis / 1000)}
+                </Text>
+                <Text style={styles.recordingHint}>Recording…</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.cancelRecordingBtn}
+                onPress={() => void cancelRecording()}
+                accessibilityRole="button"
+                accessibilityLabel="Cancel recording"
+              >
+                <X size={18} color={Colors.dark.secondary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.sendBtn}
+                onPress={() => void stopAndSendVoice()}
+                accessibilityRole="button"
+                accessibilityLabel="Send voice note"
+              >
+                <Square size={16} color={Colors.white} fill={Colors.white} />
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.attachBtn}
+                onPress={() => void startRecording()}
+                disabled={sendingVoice}
+                accessibilityRole="button"
+                accessibilityLabel="Record a voice note"
+              >
+                {sendingVoice ? (
+                  <ActivityIndicator size="small" color={Colors.primary.DEFAULT} />
+                ) : (
+                  <Mic size={21} color={Colors.primary.DEFAULT} />
+                )}
+              </TouchableOpacity>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  placeholder="Type here..."
+                  placeholderTextColor={Colors.dark.tertiary}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  style={styles.composerInput}
+                  multiline
+                  editable={!sending}
+                  accessibilityLabel="Message"
+                  underlineColorAndroid="transparent"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.sendBtn, (!inputText.trim() || sending) && styles.sendBtnDisabled]}
+                onPress={handleSend}
+                disabled={!inputText.trim() || sending}
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+              >
+                {sending ? <ActivityIndicator size="small" color={Colors.white} /> : <Send size={18} color={Colors.white} />}
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -346,6 +560,54 @@ const styles = StyleSheet.create({
   timeTextThem: {
     color: Colors.dark.tertiary,
   },
+  voiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minWidth: 150,
+  },
+  voicePlay: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voicePlayMe: {
+    backgroundColor: Colors.white,
+  },
+  voicePlayThem: {
+    backgroundColor: Colors.primary.DEFAULT,
+  },
+  voiceTrackWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  voiceTrack: {
+    height: 4,
+    borderRadius: BorderRadius.full,
+    overflow: 'hidden',
+  },
+  voiceTrackMe: {
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  voiceTrackThem: {
+    backgroundColor: Colors.border.dark,
+  },
+  voiceFill: {
+    height: '100%',
+    borderRadius: BorderRadius.full,
+  },
+  voiceFillMe: {
+    backgroundColor: Colors.white,
+  },
+  voiceFillThem: {
+    backgroundColor: Colors.primary.DEFAULT,
+  },
+  voiceDuration: {
+    fontFamily: FontFamily.medium,
+    fontSize: 10,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -379,5 +641,42 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: Colors.border.dark,
+  },
+  recordingBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+    backgroundColor: Colors.semantic.critical.light,
+    borderRadius: BorderRadius.full,
+    paddingHorizontal: Spacing.md,
+    height: 40,
+  },
+  recordingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.semantic.critical.DEFAULT,
+  },
+  recordingText: {
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.sm,
+    color: Colors.semantic.critical.DEFAULT,
+  },
+  recordingHint: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.secondary,
+  },
+  cancelRecordingBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.sm,
+    marginRight: Spacing.xs,
+    backgroundColor: Colors.border.light,
   },
 });

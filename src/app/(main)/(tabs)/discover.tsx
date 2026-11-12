@@ -3,7 +3,7 @@
 // network. People results come from the privacy-aware find_nearby_users RPC;
 // communities and organizations come from live Supabase queries (RLS-protected).
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, Alert, ActivityIndicator, Linking, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Keyboard, ActivityIndicator, Linking, Platform } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { Search, MapPin, Users, Building2, Droplet } from 'lucide-react-native';
 import { Screen } from '@/components/layout/Screen';
@@ -57,6 +57,15 @@ export default function DiscoverScreen() {
     setError(null);
     try {
       if (activeFilter === 'people') {
+        // Keep the stored current location fresh so travelling to a new city
+        // changes the nearby results automatically (throttled; never prompts).
+        if (user?.id) {
+          try {
+            await locationService.refreshCurrentLocation(user.id);
+          } catch (err) {
+            console.warn('[Discover] Current-location refresh failed:', err);
+          }
+        }
         const hasLocation = user ? await locationService.hasCurrentLocation(user.id) : false;
         if (!hasLocation) {
           setLocationRequired(true);
@@ -129,7 +138,7 @@ export default function DiscoverScreen() {
     } else if (item.type === 'community') {
       router.push(`/(main)/community/${item.id}`);
     } else {
-      Alert.alert(item.name, 'Organization profiles are not available yet.');
+      router.push(`/(main)/organization/${item.id}`);
     }
   };
 

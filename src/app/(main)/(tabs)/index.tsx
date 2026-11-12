@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { useAuthStore } from '@/features/auth/stores/authStore';
 import { requestService, type BloodRequestRow } from '@/features/requests/services/requestService';
+import { isBloodRequestExpired } from '@/features/requests/services/requestService';
 import { postService, type PostRow } from '@/features/posts/services/postService';
 import { POST_PURPOSE_LABEL } from '@/features/posts/constants/posts';
 import { UrgencyBadge } from '@/features/requests/components/UrgencyBadge';
@@ -325,7 +326,7 @@ export default function HomeScreen() {
 
 function CompactRequestCard({ request }: { request: BloodRequestRow }) {
   const router = useRouter();
-  const isExpired = new Date(request.expires_at) < new Date();
+  const isExpired = isBloodRequestExpired(request);
   const timeLabel = isExpired ? 'Expired' : 'Active';
 
   return (
@@ -444,7 +445,7 @@ const styles = StyleSheet.create({
     welcomeText: {
       color: 'rgba(255,255,255,0.84)',
       fontFamily: FontFamily.regular,
-      fontSize: 10,
+      fontSize: FontSize.xs,
       marginTop: 2,
     },
     headerAction: {
@@ -467,7 +468,7 @@ const styles = StyleSheet.create({
       color: Colors.dark.DEFAULT,
       fontFamily: FontFamily.semibold,
       fontSize: FontSize.md,
-      lineHeight: 19,
+      lineHeight: LineHeight.md,
       paddingHorizontal: Spacing.md,
       paddingBottom: Spacing.xs,
     },
@@ -546,7 +547,7 @@ const styles = StyleSheet.create({
     availabilityDetail: {
       color: Colors.dark.tertiary,
       fontFamily: FontFamily.regular,
-      fontSize: 10,
+      fontSize: FontSize.xs,
     },
     emergencyCard: {
       height: 126,
@@ -774,7 +775,7 @@ const styles = StyleSheet.create({
   },
   quickCaption: {
     fontFamily: FontFamily.regular,
-    fontSize: 9,
+    fontSize: FontSize.xs,
     color: Colors.dark.tertiary,
     marginTop: 2,
   },
@@ -897,9 +898,9 @@ const styles = StyleSheet.create({
   },
   postContent: {
     fontFamily: FontFamily.regular,
-    fontSize: FontSize.sm,
+    fontSize: FontSize.base,
     color: Colors.dark.secondary,
-    lineHeight: 18,
+    lineHeight: LineHeight.base,
     marginBottom: Spacing.xs,
   },
   postFooter: {

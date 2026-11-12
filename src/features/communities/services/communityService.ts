@@ -47,6 +47,9 @@ export const communityService = {
         .from('communities')
         .select('*')
         .eq('is_active', true)
+        // Invite-only communities stay reachable by direct link but are hidden
+        // from public listings.
+        .neq('join_policy', 'invite_only')
         .order('member_count', { ascending: false })
         .limit(options?.limit ?? 20);
       data = res.data;
@@ -144,9 +147,45 @@ export const communityService = {
     return (data || []) as CommunityMemberRow[];
   },
 
+  async getPendingMembers(communityId: string): Promise<CommunityMemberRow[]> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('community_members')
+      .select(`*, profile:profiles!community_members_user_id_fkey(display_name, avatar_url)`)
+      .eq('community_id', communityId)
+      .eq('status', 'pending')
+      .order('joined_at', { ascending: true });
+
+    if (error) throw error;
+    return (data || []) as CommunityMemberRow[];
+  },
+
+  async getMyMembership(
+    communityId: string,
+    userId: string
+  ): Promise<{ role: CommunityMemberRow['role']; status: CommunityMemberRow['status'] } | null> {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(communityId)) {
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from('community_members')
+      .select('role, status')
+      .eq('community_id', communityId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data as { role: CommunityMemberRow['role']; status: CommunityMemberRow['status'] } | null);
+  },
+
   async joinCommunity(communityId: string, userId: string): Promise<void> {
     const community = await communityService.getCommunityById(communityId);
-    const status = community?.join_policy === 'open' ? 'active' : 'pending';
+    const status: CommunityMemberRow['status'] =
+      community?.join_policy === 'open' ? 'active' : 'pending';
 
     // Avoid duplicate-key errors when the user is already a member.
     const { data: existing } = await supabase
@@ -158,7 +197,18 @@ export const communityService = {
 
     if (existing) {
       if (existing.status === 'active' || existing.status === 'pending') return;
-      throw new Error('You previously left this community.');
+
+      // Rejoining after leaving: reactivate the existing row as a regular member.
+      if (existing.status === 'left') {
+        const { error } = await supabase
+          .from('community_members')
+          .update({ status, role: 'member' })
+          .eq('id', existing.id);
+        if (error) throw error;
+        return;
+      }
+
+      throw new Error('This membership cannot be reactivated. Contact a community admin.');
     }
 
     const { error } = await supabase
@@ -172,11 +222,34 @@ export const communityService = {
   },
 
   async leaveCommunity(communityId: string, userId: string): Promise<void> {
+    // Demote on leave so a former moderator/admin cannot rejoin with elevated
+    // rights (the DB guard also enforces this).
     const { error } = await supabase
       .from('community_members')
-      .update({ status: 'left' })
+      .update({ status: 'left', role: 'member' })
       .eq('community_id', communityId)
       .eq('user_id', userId);
+
+    if (error) throw error;
+  },
+
+  async setMemberStatus(
+    memberId: string,
+    status: 'active' | 'pending' | 'suspended' | 'left'
+  ): Promise<void> {
+    const { error } = await supabase
+      .from('community_members')
+      .update({ status })
+      .eq('id', memberId);
+
+    if (error) throw error;
+  },
+
+  async setMemberRole(memberId: string, role: 'admin' | 'moderator' | 'member'): Promise<void> {
+    const { error } = await supabase
+      .from('community_members')
+      .update({ role })
+      .eq('id', memberId);
 
     if (error) throw error;
   },

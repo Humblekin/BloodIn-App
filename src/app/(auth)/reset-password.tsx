@@ -12,7 +12,7 @@ import { useAuthStore } from '../../features/auth/stores/authStore';
 import { describeAuthCallbackError } from '../../features/auth/authCallback';
 import { passwordSchema, resetPasswordSchema } from '../../utils/validation';
 import { Colors } from '../../constants/colors';
-import { FontFamily, FontSize } from '../../constants/typography';
+import { FontFamily, FontSize, LineHeight } from '../../constants/typography';
 import { Spacing } from '../../constants/spacing';
 
 const firstParam = (value?: string | string[]) =>
@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     fontSize: FontSize.base,
     color: Colors.dark.secondary,
-    lineHeight: 22,
+    lineHeight: LineHeight.base,
   },
   form: {
     gap: Spacing.lg,

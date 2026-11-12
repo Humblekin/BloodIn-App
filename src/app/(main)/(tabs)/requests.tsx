@@ -47,7 +47,9 @@ export default function RequestsScreen() {
   };
 
   const renderRequest = ({ item }: { item: BloodRequestRow }) => {
-    const isExpired = new Date(item.expires_at) < new Date();
+    const isExpired = item.status === 'expired' ||
+      !item.expires_at ||
+      new Date(item.expires_at).getTime() <= Date.now();
     const timeLabel = isExpired ? 'Expired' : 'Active';
 
     return (

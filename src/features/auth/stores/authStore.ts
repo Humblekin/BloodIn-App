@@ -9,6 +9,7 @@ import {
   RECOVERY_REDIRECT_URL,
   processAuthCallbackUrl,
 } from '@/features/auth/authCallback';
+import { getSafeSignInErrorMessage } from '@/features/auth/safeAuthError';
 import type { ProfileRow, PrivacySettingsRow } from '@/types/database';
 
 // ─── State Shape ──────────────────────────────────────────
@@ -30,9 +31,9 @@ interface AuthState {
   // Actions
   initialize: () => Promise<void>;
   refreshSession: () => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<{ error: AuthError | null }>;
+  signUp: (email: string, password: string, displayName: string, ageConfirmed: boolean) => Promise<{ error: AuthError | null }>;
   completeAuthCallback: (url: string) => Promise<{ error: AuthError | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: AuthError | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: { message: string } | null }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: AuthError | null }>;
   updatePassword: (password: string) => Promise<{ error: AuthError | null }>;
@@ -125,7 +126,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, displayName) => {
+  signUp: async (email, password, displayName, ageConfirmed) => {
     try {
       set({ isLoading: true, error: null });
 
@@ -135,6 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         options: {
           data: {
             display_name: displayName,
+            age_confirmed: ageConfirmed,
           },
           emailRedirectTo: CONFIRM_REDIRECT_URL,
         },
@@ -181,8 +183,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       if (error) {
-        set({ isLoading: false, error: error.message });
-        return { error };
+        const message = getSafeSignInErrorMessage(error);
+        set({ isLoading: false, error: message });
+        return { error: { message } };
       }
 
       set({
@@ -193,9 +196,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       return { error: null };
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Sign in failed';
+      const message = getSafeSignInErrorMessage(err);
       set({ isLoading: false, error: message });
-      return { error: { message } as AuthError };
+      return { error: { message } };
     }
   },
 

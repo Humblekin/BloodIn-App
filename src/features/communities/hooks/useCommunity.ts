@@ -62,6 +62,32 @@ export function useCommunity() {
     }
   }, []);
 
+  const fetchPendingMembers = useCallback(async (communityId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await communityService.getPendingMembers(communityId);
+    } catch (err: any) {
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchMyMembership = useCallback(async (communityId: string, userId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await communityService.getMyMembership(communityId, userId);
+    } catch (err: any) {
+      setError(err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchAnnouncements = useCallback(async (communityId: string) => {
     setLoading(true);
     setError(null);
@@ -119,6 +145,38 @@ export function useCommunity() {
     }
   }, []);
 
+  const setMemberStatus = useCallback(
+    async (memberId: string, status: 'active' | 'pending' | 'suspended' | 'left') => {
+      setLoading(true);
+      setError(null);
+      try {
+        await communityService.setMemberStatus(memberId, status);
+      } catch (err: any) {
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const setMemberRole = useCallback(
+    async (memberId: string, role: 'admin' | 'moderator' | 'member') => {
+      setLoading(true);
+      setError(null);
+      try {
+        await communityService.setMemberRole(memberId, role);
+      } catch (err: any) {
+        setError(err);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
   return {
     loading,
     error,
@@ -126,9 +184,13 @@ export function useCommunity() {
     fetchCommunityById,
     createCommunity,
     fetchMembers,
+    fetchPendingMembers,
+    fetchMyMembership,
     fetchAnnouncements,
     joinCommunity,
     leaveCommunity,
     postAnnouncement,
+    setMemberStatus,
+    setMemberRole,
   };
 }

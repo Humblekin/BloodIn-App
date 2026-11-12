@@ -5,7 +5,7 @@ import { colors } from '@/constants/colors';
 import { typography } from '@/constants/typography';
 import { UrgencyBadge } from './UrgencyBadge';
 import { MapPin, Clock } from 'lucide-react-native';
-import type { BloodRequestRow } from '../services/requestService';
+import { isBloodRequestExpired, type BloodRequestRow } from '../services/requestService';
 
 interface RequestCardProps {
   request: BloodRequestRow;
@@ -18,7 +18,7 @@ export function RequestCard({ request }: RequestCardProps) {
     router.push(`/requests/${request.id}`);
   };
 
-  const isExpired = new Date(request.expires_at) < new Date();
+  const isExpired = isBloodRequestExpired(request);
   const timeRemaining = isExpired 
     ? 'Expired' 
     : 'Expires soon'; // In a real app, calculate relative time (e.g. "2 hours left")

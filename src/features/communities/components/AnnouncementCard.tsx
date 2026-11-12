@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
   },
   pinnedText: {
     fontFamily: typography.fonts.bold,
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
     color: colors.text.inverse,
   },
   title: {
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
   },
   content: {
     fontFamily: typography.fonts.regular,
-    fontSize: typography.sizes.sm,
+    fontSize: typography.sizes.base,
     color: colors.text.secondary,
-    lineHeight: 20,
+    lineHeight: 24,
     marginBottom: 16,
   },
   footer: {

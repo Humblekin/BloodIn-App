@@ -1,8 +1,8 @@
 // Project LifeOrbit — Orbit Screen
 // Radar-style visualization of the user's nearby network (real profiles from
 // find_nearby_users). Tapping a node opens a LinkedIn-style profile sheet.
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Linking, Platform } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Linking, Platform, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import Animated, { useSharedValue, withRepeat, withTiming, Easing, useAnimatedStyle } from 'react-native-reanimated';
@@ -45,6 +45,7 @@ export default function OrbitScreen() {
   const [selectedNode, setSelectedNode] = useState<OrbitNode | null>(null);
   const [nodes, setNodes] = useState<OrbitNode[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [locating, setLocating] = useState(false);
   const [locationRequired, setLocationRequired] = useState(false);
   const [willingOnly, setWillingOnly] = useState(false);
@@ -72,11 +73,48 @@ export default function OrbitScreen() {
     }
   }, []);
 
+  // Silently refresh the stored current location when the screen gains focus
+  // so travelling to another city updates the orbit origin automatically.
+  const refreshAndLoad = useCallback(
+    async (isWilling: boolean, force = false) => {
+      if (force) setRefreshing(true);
+      try {
+        if (user?.id) {
+          try {
+            await locationService.refreshCurrentLocation(user.id, { force });
+          } catch (err) {
+            console.warn('[Orbit] Current-location refresh failed:', err);
+          }
+        }
+        await loadNetwork(isWilling);
+      } finally {
+        if (force) setRefreshing(false);
+      }
+    },
+    [user?.id, loadNetwork]
+  );
+
+  const focusedRef = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
-      loadNetwork(willingOnly);
-    }, [loadNetwork, willingOnly])
+      focusedRef.current = true;
+      void refreshAndLoad(willingOnly);
+      return () => {
+        focusedRef.current = false;
+      };
+    }, [refreshAndLoad, willingOnly])
   );
+
+  // Returning to the app after travelling should also refresh the origin.
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && focusedRef.current) {
+        void refreshAndLoad(willingOnly);
+      }
+    });
+    return () => subscription.remove();
+  }, [refreshAndLoad, willingOnly]);
 
   const handleEnableLocation = async () => {
     if (!user) {
@@ -144,12 +182,16 @@ export default function OrbitScreen() {
           <View style={styles.topRightActions}>
             {!locationRequired && (
               <TouchableOpacity
-                onPress={() => loadNetwork(willingOnly)}
-                disabled={loading}
+                onPress={() => void refreshAndLoad(willingOnly, true)}
+                disabled={loading || refreshing}
                 style={styles.refreshIconBtn}
-                accessibilityLabel="Refresh Orbit"
+                accessibilityLabel="Refresh Orbit and update location"
               >
-                <RefreshCw size={13} color="rgba(255,255,255,0.6)" />
+                {refreshing ? (
+                  <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" />
+                ) : (
+                  <RefreshCw size={13} color="rgba(255,255,255,0.6)" />
+                )}
               </TouchableOpacity>
             )}
             <LiveIndicator />
@@ -239,7 +281,7 @@ const styles = StyleSheet.create({
   },
   eyebrow: {
     fontFamily: FontFamily.medium,
-    fontSize: 10,
+    fontSize: FontSize.xs,
     letterSpacing: LetterSpacing.wider,
     color: 'rgba(255,255,255,0.45)',
   },
@@ -278,7 +320,7 @@ const styles = StyleSheet.create({
   },
   liveText: {
     fontFamily: FontFamily.semibold,
-    fontSize: 10,
+    fontSize: FontSize.xs,
     letterSpacing: LetterSpacing.wider,
     color: Colors.semantic.success.DEFAULT,
   },

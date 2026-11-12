@@ -10,6 +10,14 @@ const RETRY_LOCATION_ACCURACY_METERS = 1000;
 const MAX_CITY_LABEL_DISTANCE_KM = 50;
 const MAX_REGION_RESOLVE_DISTANCE_KM = 150;
 
+// Automatic travel detection: refresh at most every 2 minutes when a screen
+// gains focus, and re-write the stored fix if the city changed or the last
+// fix is older than 15 minutes (keeps within-city distances accurate).
+const AUTO_REFRESH_MIN_INTERVAL_MS = 2 * 60 * 1000;
+const CURRENT_LOCATION_MAX_AGE_MS = 15 * 60 * 1000;
+
+let lastAutoRefresh: { userId: string; at: number } | null = null;
+
 export interface CountryRow { id: number; name: string; code: string; phone_code: string | null; }
 export interface RegionRow { id: number; country_id: number; name: string; }
 export interface CityRow { id: number; region_id: number; name: string; latitude: number | null; longitude: number | null; }
@@ -42,6 +50,13 @@ export interface LocationPermissionResult {
   servicesEnabled: boolean;
   status: Location.PermissionStatus | 'services_disabled';
   message?: string;
+}
+
+export interface LocationRefreshResult {
+  updated: boolean;
+  cityChanged: boolean;
+  locationName?: string;
+  reason?: 'no_user' | 'throttled' | 'permission' | 'unavailable' | 'no_change';
 }
 
 export const locationService = {
@@ -278,6 +293,111 @@ export const locationService = {
         success: false,
         error: message,
       };
+    }
+  },
+
+  /**
+   * Silently refreshes the stored *current* location so travel to another
+   * city is picked up without the user re-running onboarding.
+   *
+   * - Never prompts for permission: if it is not already granted it no-ops.
+   * - Throttled to avoid constant GPS reads; pass `force` for a manual refresh.
+   * - Writes when the resolved city/region changed, when the stored fix is
+   *   stale, or when forced.
+   * - Never touches the user's home location.
+   */
+  async refreshCurrentLocation(
+    userId: string,
+    options?: { force?: boolean; minIntervalMs?: number }
+  ): Promise<LocationRefreshResult> {
+    if (!userId) return { updated: false, cityChanged: false, reason: 'no_user' };
+
+    const now = Date.now();
+    const minInterval = options?.minIntervalMs ?? AUTO_REFRESH_MIN_INTERVAL_MS;
+    if (
+      !options?.force &&
+      lastAutoRefresh?.userId === userId &&
+      now - lastAutoRefresh.at < minInterval
+    ) {
+      return { updated: false, cityChanged: false, reason: 'throttled' };
+    }
+    lastAutoRefresh = { userId, at: now };
+
+    try {
+      const [permission, servicesEnabled] = await Promise.all([
+        Location.getForegroundPermissionsAsync(),
+        Location.hasServicesEnabledAsync(),
+      ]);
+      if (!permission.granted || !servicesEnabled) {
+        return { updated: false, cityChanged: false, reason: 'permission' };
+      }
+
+      let coords: ValidCoordinates;
+      try {
+        coords = await this.acquireCurrentPosition(Location.Accuracy.Balanced);
+      } catch (err) {
+        console.warn('[Location] Silent current-location refresh failed:', err);
+        return { updated: false, cityChanged: false, reason: 'unavailable' };
+      }
+
+      let stored: any = null;
+      try {
+        stored = await this.getUserLocation(userId);
+      } catch (err) {
+        console.warn('[Location] Could not read stored location:', err);
+      }
+
+      let resolved: { countryId: number; regionId: number; cityId?: number; name: string } | null = null;
+      try {
+        resolved = await this.resolveNearestCity(coords.latitude, coords.longitude);
+      } catch (err) {
+        console.warn('[Location] Silent city resolution failed:', err);
+      }
+
+      const storedCityId: number | null = stored?.current_city_id ?? null;
+      const storedRegionId: number | null = stored?.current_region_id ?? null;
+      const storedUpdatedAt = stored?.coordinates_updated_at
+        ? new Date(stored.coordinates_updated_at).getTime()
+        : 0;
+      const stale =
+        !stored?.current_coordinates ||
+        !storedUpdatedAt ||
+        now - storedUpdatedAt > CURRENT_LOCATION_MAX_AGE_MS;
+
+      const cityChanged =
+        resolved != null &&
+        (resolved.cityId != null
+          ? resolved.cityId !== storedCityId
+          : resolved.regionId !== storedRegionId);
+
+      if (!options?.force && !cityChanged && !stale) {
+        return { updated: false, cityChanged: false, reason: 'no_change' };
+      }
+
+      // When resolution fails transiently, keep the last known hierarchy and
+      // only move the coordinates so locality labels do not get wiped.
+      const hierarchy = resolved
+        ? { countryId: resolved.countryId, regionId: resolved.regionId, cityId: resolved.cityId }
+        : {
+            countryId: stored?.current_country_id ?? undefined,
+            regionId: stored?.current_region_id ?? undefined,
+            cityId: stored?.current_city_id ?? undefined,
+          };
+
+      await this.updateUserLocation(userId, {
+        ...hierarchy,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+
+      return {
+        updated: true,
+        cityChanged,
+        locationName: resolved?.name,
+      };
+    } catch (err) {
+      console.warn('[Location] refreshCurrentLocation failed:', err);
+      return { updated: false, cityChanged: false, reason: 'unavailable' };
     }
   },
 

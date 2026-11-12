@@ -9,7 +9,7 @@ import { Colors } from '@/constants/colors';
 import { FontFamily, FontSize } from '@/constants/typography';
 import { Spacing } from '@/constants/spacing';
 import { useRouter } from 'expo-router';
-import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight, Star, Heart } from 'lucide-react-native';
+import { UserCog, Users, Lock, ShieldCheck, LogOut, ChevronRight, Star, Heart, FileText } from 'lucide-react-native';
 import { PremiumBadge } from '@/features/premium/components/PremiumBadge';
 
 export default function ProfileScreen() {
@@ -42,16 +42,16 @@ export default function ProfileScreen() {
       onPress: () => router.push('/(main)/(tabs)/profile/safety'),
     },
     {
+      label: 'Terms & Privacy',
+      description: 'Read BloodIn legal documents',
+      icon: <FileText size={22} color={Colors.primary.DEFAULT} />,
+      onPress: () => router.push('/legal'),
+    },
+    {
       label: 'Premium',
       description: profile?.is_premium ? 'You are a Premium member' : 'Upgrade for priority features',
       icon: <Star size={22} color={Colors.premium} />,
       onPress: () => router.push('/(main)/(tabs)/profile/premium'),
-    },
-    {
-      label: 'Donate Programme',
-      description: 'Your donor card and donation recognitions',
-      icon: <Heart size={22} color={Colors.primary.DEFAULT} />,
-      onPress: () => router.push('/(main)/(tabs)/profile/donate'),
     },
   ];
 
@@ -78,6 +78,24 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+
+        <TouchableOpacity
+          style={styles.donateProgramme}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          onPress={() => router.push('/(main)/(tabs)/profile/donate')}
+        >
+          <View style={styles.donateIcon}>
+            <Heart size={22} color={Colors.primary.DEFAULT} />
+          </View>
+          <View style={styles.menuTextGroup}>
+            <Text style={styles.menuLabel}>Donate Programme</Text>
+            <Text style={styles.menuDescription}>
+              Your donor card and verified donation history
+            </Text>
+          </View>
+          <ChevronRight size={20} color={Colors.primary.DEFAULT} />
+        </TouchableOpacity>
 
         <View style={styles.menu}>
           {menuItems.map((item) => (
@@ -151,6 +169,25 @@ const styles = StyleSheet.create({
   },
   menu: {
     gap: Spacing.sm,
+  },
+  donateProgramme: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primary.subtle,
+    borderRadius: 12,
+    padding: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.primary.muted,
+    marginBottom: Spacing.lg,
+  },
+  donateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.surface.DEFAULT,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Spacing.md,
   },
   menuItem: {
     flexDirection: 'row',

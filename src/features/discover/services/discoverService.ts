@@ -70,6 +70,8 @@ export const discoverService = {
         .from('communities')
         .select('id, name, description, member_count, is_verified, logo_url')
         .eq('is_active', true)
+        // Invite-only communities are not publicly discoverable.
+        .neq('join_policy', 'invite_only')
         .order('member_count', { ascending: false })
         .limit(options?.limit ?? 20);
       data = res.data;
@@ -99,9 +101,11 @@ export const discoverService = {
     try {
       const res = await supabase
         .from('organizations')
-        .select('id, name, description, org_type, verification_level, logo_url')
+        .select('id, name, description, org_type, verification_level, logo_url, member_count')
         .eq('is_active', true)
-        .order('name', { ascending: true })
+        // Invite-only organizations are not publicly discoverable.
+        .neq('join_policy', 'invite_only')
+        .order('member_count', { ascending: false })
         .limit(options?.limit ?? 20);
       data = res.data;
       error = res.error;
@@ -117,6 +121,7 @@ export const discoverService = {
       type: 'organization' as const,
       name: o.name,
       subtitle: o.org_type,
+      memberCount: o.member_count,
       isVerified: o.verification_level !== 'unverified',
       avatarUrl: o.logo_url,
     }));

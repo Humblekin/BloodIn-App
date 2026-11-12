@@ -224,8 +224,53 @@ export interface OrganizationMemberRow {
   organization_id: string;
   user_id: string;
   role: OrganizationRole;
+  status: 'pending' | 'active' | 'suspended' | 'left';
+  can_record_donations: boolean;
   is_active: boolean;
   joined_at: string;
+}
+
+// ─── Donation Programme ───────────────────────────────────
+export interface DonationProgrammeSettingsRow {
+  id: boolean;
+  levels: { level: number; min_donations: number; label: string }[];
+  card_expires: boolean;
+  review_interval_months: number;
+  updated_at: string;
+}
+
+export interface FacilityDonorBenefitRow {
+  organization_id: string;
+  free_blood_enabled: boolean;
+  terms: string | null;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+export interface DonorCardRow {
+  id: string;
+  user_id: string;
+  level: number;
+  status: 'active' | 'suspended' | 'revoked' | 'expired';
+  approved_by_organization_id: string | null;
+  approved_by_user_id: string | null;
+  issued_at: string;
+  expires_at: string | null;
+  terms_version: number;
+  updated_at: string;
+}
+
+export interface DonationRecognitionRow {
+  id: string;
+  donor_id: string;
+  recognised_by: string | null;
+  donation_date: string;
+  location_label: string | null;
+  notes: string | null;
+  organization_id: string | null;
+  source: 'facility' | 'drive' | null;
+  method: 'qr' | 'code' | null;
+  created_at: string;
 }
 
 // ─── Messaging ────────────────────────────────────────────
@@ -249,10 +294,14 @@ export interface MessageRow {
   id: string;
   conversation_id: string;
   sender_id: string;
-  content: string;
+  content: string | null;
   is_system_message: boolean;
   created_at: string;
   updated_at: string;
+  message_type: 'text' | 'voice';
+  media_path: string | null;
+  duration_seconds: number | null;
+  media_url?: string | null;
 }
 
 // ─── Blood Requests ──────────────────────────────────────
@@ -265,7 +314,6 @@ export interface BloodRequestRow {
   urgency_level: number;
   hospital_name: string;
   location_point: string | null;
-  contact_number: string | null;
   additional_notes: string | null;
   request_type: RequestType;
   urgency: UrgencyLevel;
@@ -282,6 +330,13 @@ export interface BloodRequestRow {
   is_verified: boolean;
   safety_acknowledged: boolean;
   expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BloodRequestContactRow {
+  request_id: string;
+  contact_number: string;
   created_at: string;
   updated_at: string;
 }

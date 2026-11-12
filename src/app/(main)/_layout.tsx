@@ -13,6 +13,8 @@ export default function MainLayout() {
       <Stack.Screen name="community/create" />
       <Stack.Screen name="community/manage" />
       <Stack.Screen name="community/[id]" />
+      <Stack.Screen name="organization/manage" />
+      <Stack.Screen name="organization/[id]" />
       <Stack.Screen name="messages/index" />
       <Stack.Screen name="messages/[id]" />
       <Stack.Screen name="requests/create" />

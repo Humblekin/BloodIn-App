@@ -22,34 +22,34 @@ export const FontFamily = {
 
 // Type scale — purposeful sizes for clear hierarchy
 export const FontSize = {
-  /** 11px — Small labels, timestamps, badges */
-  xs: 11,
-  /** 13px — Captions, secondary info */
-  sm: 13,
-  /** 15px — Body text (default) */
-  base: 15,
-  /** 17px — Emphasized body, list titles */
-  md: 17,
-  /** 20px — Section headers */
-  lg: 20,
-  /** 24px — Screen titles */
-  xl: 24,
-  /** 30px — Hero text, large titles */
-  '2xl': 30,
-  /** 36px — Display text (rare) */
-  '3xl': 36,
+  /** 12px — Small labels, timestamps, badges */
+  xs: 12,
+  /** 14px — Captions, secondary info */
+  sm: 14,
+  /** 16px — Body text (default) */
+  base: 16,
+  /** 18px — Emphasized body, list titles */
+  md: 18,
+  /** 21px — Section headers */
+  lg: 21,
+  /** 25px — Screen titles */
+  xl: 25,
+  /** 31px — Hero text, large titles */
+  '2xl': 31,
+  /** 37px — Display text (rare) */
+  '3xl': 37,
 } as const;
 
 // Line heights — optimized for readability
 export const LineHeight = {
   xs: 16,
-  sm: 18,
-  base: 22,
-  md: 24,
-  lg: 28,
-  xl: 32,
-  '2xl': 38,
-  '3xl': 44,
+  sm: 20,
+  base: 24,
+  md: 26,
+  lg: 30,
+  xl: 34,
+  '2xl': 40,
+  '3xl': 46,
 } as const;
 
 // Letter spacing
@@ -172,6 +172,7 @@ export const typography = {
   sizes: {
     xs: FontSize.xs,
     sm: FontSize.sm,
+    base: FontSize.base,
     md: FontSize.md,
     lg: FontSize.lg,
     xl: FontSize.xl,

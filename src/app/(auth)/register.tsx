@@ -61,6 +61,7 @@ export default function RegisterScreen() {
       password: '',
       confirmPassword: '',
       accountType: 'individual',
+      ageConfirmed: false as true,
       safetyAcknowledged: false as true, // Type cast for default
     },
   });
@@ -68,7 +69,7 @@ export default function RegisterScreen() {
   const onSubmit = async (data: SignUpFormData) => {
     Keyboard.dismiss();
     clearError();
-    const result = await signUp(data.email, data.password, data.displayName);
+    const result = await signUp(data.email, data.password, data.displayName, data.ageConfirmed);
     
     if (result.error) {
       Alert.alert('Registration Failed', result.error.message);
@@ -167,6 +168,36 @@ export default function RegisterScreen() {
             />
 
             <View style={styles.safetySection}>
+              <Controller
+                control={control}
+                name="ageConfirmed"
+                render={({ field: { onChange, value } }) => (
+                  <CustomCheckbox
+                    value={value}
+                    onValueChange={onChange}
+                    label="I confirm that I am 18 years old or older."
+                    error={errors.ageConfirmed?.message}
+                  />
+                )}
+              />
+              <View style={styles.legalLinks}>
+                <Text style={styles.legalLinksLabel}>Review BloodIn's draft documents:</Text>
+                <View style={styles.legalLinksRow}>
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => router.push('/legal?document=terms')}
+                  >
+                    <Text style={styles.legalLink}>Terms of Use</Text>
+                  </Pressable>
+                  <Text style={styles.legalSeparator}>·</Text>
+                  <Pressable
+                    accessibilityRole="link"
+                    onPress={() => router.push('/legal?document=privacy')}
+                  >
+                    <Text style={styles.legalLink}>Privacy Notice</Text>
+                  </Pressable>
+                </View>
+              </View>
               <SafetyNotice type="registration" />
               
               <Controller
@@ -222,6 +253,29 @@ const styles = StyleSheet.create({
   },
   safetySection: {
     marginTop: Spacing.md,
+  },
+  legalLinks: {
+    marginBottom: Spacing.md,
+  },
+  legalLinksLabel: {
+    fontFamily: FontFamily.regular,
+    fontSize: FontSize.xs,
+    color: Colors.dark.secondary,
+    marginBottom: Spacing.xs,
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  legalLink: {
+    fontFamily: FontFamily.semibold,
+    fontSize: FontSize.sm,
+    color: Colors.primary.dark,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    color: Colors.dark.tertiary,
     gap: Spacing.lg,
   },
   errorText: {

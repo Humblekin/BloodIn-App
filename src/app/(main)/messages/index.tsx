@@ -58,7 +58,9 @@ export default function MessagesListScreen() {
           </View>
           <View style={styles.chatFooter}>
             <Text style={styles.lastMessage} numberOfLines={1}>
-              {item.last_message?.content || 'Tap to view messages...'}
+              {item.last_message?.message_type === 'voice'
+                ? 'Voice note'
+                : item.last_message?.content || 'Tap to view messages...'}
             </Text>
           </View>
         </View>

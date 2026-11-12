@@ -107,12 +107,12 @@ const styles = StyleSheet.create({
   },
   typeText: {
     fontFamily: typography.fonts.semiBold,
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
     color: colors.primary.default,
   },
   statusText: {
     fontFamily: typography.fonts.bold,
-    fontSize: 10,
+    fontSize: typography.sizes.xs,
     color: colors.text.tertiary,
   },
   title: {
