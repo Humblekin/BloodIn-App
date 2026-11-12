@@ -1,15 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { corsHeaders } from 'npm:@supabase/supabase-js@^2/cors';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-retry-count, traceparent, tracestate, baggage',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-};
 
 function jsonResponse(message: string, status = 200): Response {
   return new Response(JSON.stringify({ message }), {
@@ -18,7 +12,7 @@ function jsonResponse(message: string, status = 200): Response {
   });
 }
 
-export default async (req: Request) => {
+const handleRequest = async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return jsonResponse('Method not allowed', 405);
 
@@ -101,3 +95,5 @@ export default async (req: Request) => {
 
   return jsonResponse('Password change completed');
 };
+
+export default { fetch: handleRequest };
