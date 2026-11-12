@@ -214,143 +214,166 @@ export default function App() {
 
   const loadOrgs = useCallback(async () => {
     setOrgsLoaded(false);
-    const { data, error } = await supabase.rpc('my_recording_organizations');
-    if (error) {
-      setAuthError(error.message);
+    try {
+      const { data, error } = await supabase.rpc('my_recording_organizations');
+      if (error) {
+        setAuthError(error.message);
+        return;
+      }
+      const list = (data as RecordingOrg[] | null) ?? [];
+      setOrgs(list);
+      setSelectedOrgId((current) =>
+        current && list.some((org) => org.organization_id === current)
+          ? current
+          : list[0]?.organization_id ?? ''
+      );
+      setAuthError(null);
+    } catch (error) {
+      setAuthError(
+        error instanceof Error ? error.message : 'Could not load facility recording access.'
+      );
+    } finally {
       setOrgsLoaded(true);
-      return;
     }
-    const list = (data as RecordingOrg[] | null) ?? [];
-    setOrgs(list);
-    setSelectedOrgId((current) =>
-      current && list.some((org) => org.organization_id === current)
-        ? current
-        : list[0]?.organization_id ?? ''
-    );
-    setOrgsLoaded(true);
   }, []);
 
   const loadApprovalAccess = useCallback(async () => {
     setApprovalOrgsLoaded(false);
 
-    const [orgsRes, settingsRes] = await Promise.all([
-      supabase.rpc('my_approval_organizations'),
-      supabase
-        .from('donation_programme_settings')
-        .select('levels')
-        .eq('id', true)
-        .maybeSingle(),
-    ]);
+    try {
+      const [orgsRes, settingsRes] = await Promise.all([
+        supabase.rpc('my_approval_organizations'),
+        supabase
+          .from('donation_programme_settings')
+          .select('levels')
+          .eq('id', true)
+          .maybeSingle(),
+      ]);
 
-    if (orgsRes.error) {
-      setCardError(orgsRes.error.message);
-    } else {
-      const list = (orgsRes.data as ApprovalOrg[] | null) ?? [];
-      setApprovalOrgs(list);
-      setApprovalOrgId((current) =>
-        current && list.some((org) => org.organization_id === current)
-          ? current
-          : list[0]?.organization_id ?? ''
+      if (orgsRes.error) {
+        setCardError(orgsRes.error.message);
+      } else {
+        const list = (orgsRes.data as ApprovalOrg[] | null) ?? [];
+        setApprovalOrgs(list);
+        setApprovalOrgId((current) =>
+          current && list.some((org) => org.organization_id === current)
+            ? current
+            : list[0]?.organization_id ?? ''
+        );
+      }
+
+      if (!settingsRes.error) {
+        setLevels(parseLevels((settingsRes.data as { levels: unknown } | null)?.levels));
+      }
+    } catch (error) {
+      setCardError(
+        error instanceof Error ? error.message : 'Could not load donation approval access.'
       );
+    } finally {
+      setApprovalOrgsLoaded(true);
     }
-
-    if (!settingsRes.error) {
-      setLevels(parseLevels((settingsRes.data as { levels: unknown } | null)?.levels));
-    }
-
-    setApprovalOrgsLoaded(true);
   }, []);
 
   const loadManageOrgs = useCallback(async () => {
     setManageOrgsLoaded(false);
 
-    const { data: authData } = await supabase.auth.getUser();
-    const userId = authData.user?.id;
-    if (!userId) {
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const userId = authData.user?.id;
+      if (!userId) return;
+
+      const { data, error } = await supabase
+        .from('organization_members')
+        .select(
+          'organization_id, role, organizations!inner(id, name, org_type, verification_level, is_active)'
+        )
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .in('role', ['owner', 'admin']);
+
+      if (error) {
+        setStaffError(error.message);
+        return;
+      }
+
+      const rows =
+        (data as unknown as Array<{
+          organization_id: string;
+          organizations: EmbeddedOrg | EmbeddedOrg[] | null;
+        }> | null) ?? [];
+
+      const seen = new Set<string>();
+      const list: ManageOrg[] = [];
+
+      for (const row of rows) {
+        const org = Array.isArray(row.organizations)
+          ? row.organizations[0] ?? null
+          : row.organizations;
+        if (!org || !org.is_active) continue;
+        if (!['hospital', 'blood_bank', 'ngo'].includes(org.org_type)) continue;
+        if (seen.has(row.organization_id)) continue;
+        seen.add(row.organization_id);
+        list.push({
+          organization_id: row.organization_id,
+          organization_name: org.name,
+          org_type: org.org_type,
+          verification_level: org.verification_level,
+        });
+      }
+
+      list.sort((a, b) => a.organization_name.localeCompare(b.organization_name));
+      setManageOrgs(list);
+      setManageOrgId((current) =>
+        current && list.some((org) => org.organization_id === current)
+          ? current
+          : list[0]?.organization_id ?? ''
+      );
+    } catch (error) {
+      setStaffError(
+        error instanceof Error ? error.message : 'Could not load facility management access.'
+      );
+    } finally {
       setManageOrgsLoaded(true);
-      return;
     }
-
-    const { data, error } = await supabase
-      .from('organization_members')
-      .select(
-        'organization_id, role, organizations!inner(id, name, org_type, verification_level, is_active)'
-      )
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .in('role', ['owner', 'admin']);
-
-    if (error) {
-      setStaffError(error.message);
-      setManageOrgsLoaded(true);
-      return;
-    }
-
-    const rows =
-      (data as unknown as Array<{
-        organization_id: string;
-        organizations: EmbeddedOrg | EmbeddedOrg[] | null;
-      }> | null) ?? [];
-
-    const seen = new Set<string>();
-    const list: ManageOrg[] = [];
-
-    for (const row of rows) {
-      const org = Array.isArray(row.organizations)
-        ? row.organizations[0] ?? null
-        : row.organizations;
-      if (!org || !org.is_active) continue;
-      if (!['hospital', 'blood_bank', 'ngo'].includes(org.org_type)) continue;
-      if (seen.has(row.organization_id)) continue;
-      seen.add(row.organization_id);
-      list.push({
-        organization_id: row.organization_id,
-        organization_name: org.name,
-        org_type: org.org_type,
-        verification_level: org.verification_level,
-      });
-    }
-
-    list.sort((a, b) => a.organization_name.localeCompare(b.organization_name));
-    setManageOrgs(list);
-    setManageOrgId((current) =>
-      current && list.some((org) => org.organization_id === current)
-        ? current
-        : list[0]?.organization_id ?? ''
-    );
-    setManageOrgsLoaded(true);
   }, []);
 
   const loadSystemFacilities = useCallback(async () => {
     setSystemFacilitiesLoaded(false);
     setSystemFacilitiesError(null);
-    const { data, error } = await supabase.functions.invoke('system-admin', {
-      body: { action: 'list_facilities' },
-    });
-    if (error) {
-      setSystemFacilitiesError(await getEdgeFunctionErrorMessage(error));
-      setSystemFacilities([]);
-      setSystemFacilitiesLoaded(true);
-      return;
-    }
 
-    const facilities = data?.facilities;
-    if (!Array.isArray(facilities)) {
-      setSystemFacilitiesError('The system administrator response was invalid.');
+    try {
+      const { data, error } = await supabase.functions.invoke('system-admin', {
+        body: { action: 'list_facilities' },
+      });
+      if (error) {
+        setSystemFacilitiesError(await getEdgeFunctionErrorMessage(error));
+        setSystemFacilities([]);
+        return;
+      }
+
+      const facilities = data?.facilities;
+      if (!Array.isArray(facilities)) {
+        setSystemFacilitiesError('The system administrator response was invalid.');
+        setSystemFacilities([]);
+        return;
+      }
+      setSystemFacilities(facilities as SystemFacility[]);
+      setOwnerFacilityId((current) =>
+        current &&
+        facilities.some(
+          (facility: SystemFacility) => facility.id === current && facility.is_active
+        )
+          ? current
+          : facilities.find((facility: SystemFacility) => facility.is_active)?.id ?? ''
+      );
+    } catch (error) {
+      setSystemFacilitiesError(
+        error instanceof Error ? error.message : 'Could not load system administration access.'
+      );
       setSystemFacilities([]);
+    } finally {
       setSystemFacilitiesLoaded(true);
-      return;
     }
-    setSystemFacilities(facilities as SystemFacility[]);
-    setOwnerFacilityId((current) =>
-      current &&
-      facilities.some(
-        (facility: SystemFacility) => facility.id === current && facility.is_active
-      )
-        ? current
-        : facilities.find((facility: SystemFacility) => facility.is_active)?.id ?? ''
-    );
-    setSystemFacilitiesLoaded(true);
   }, []);
 
   const loadStaff = useCallback(async (organizationId: string) => {
@@ -1289,6 +1312,7 @@ export default function App() {
             build.
           </div>
         )}
+        {authError && <div className="alert error">{authError}</div>}
 
         {!orgsLoaded ||
         !approvalOrgsLoaded ||
