@@ -35,6 +35,7 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
+      "./plugins/withAndroidEdgeToEdge",
       [
         "expo-splash-screen",
         {
@@ -44,7 +45,6 @@
           "backgroundColor": "#7A1F2B"
         }
       ],
-      "react-native-edge-to-edge",
       [
         "expo-location",
         {

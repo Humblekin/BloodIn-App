@@ -1,4 +1,6 @@
 // Project LifeOrbit — Message Service
+import { Platform } from 'react-native';
+import { File } from 'expo-file-system';
 import { supabase } from '@/lib/supabase/client';
 import { isRealId } from '@/utils/ids';
 
@@ -249,17 +251,26 @@ export const messageService = {
     localUri: string,
     durationSeconds: number
   ): Promise<MessageRow> {
-    const extension = localUri.split('?')[0]?.split('.').pop() || 'm4a';
+    const localPath = localUri.split(/[?#]/, 1)[0];
+    const extension = localPath.split('.').pop()?.toLowerCase() || 'm4a';
     const path = `${conversationId}/${senderId}/${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}.${extension}`;
 
-    const fileResponse = await fetch(localUri);
-    const blob = await fileResponse.blob();
+    let body: Blob | ArrayBuffer;
+    if (Platform.OS === 'web') {
+      const fileResponse = await fetch(localUri);
+      if (!fileResponse.ok) {
+        throw new Error(`Could not read voice recording (${fileResponse.status}).`);
+      }
+      body = await fileResponse.blob();
+    } else {
+      body = await new File(localUri).arrayBuffer();
+    }
 
     const { error: uploadError } = await supabase.storage
       .from('voice-notes')
-      .upload(path, blob, { contentType: 'audio/m4a', upsert: false });
+      .upload(path, body, { contentType: 'audio/m4a', upsert: false });
 
     if (uploadError) throw uploadError;
 
