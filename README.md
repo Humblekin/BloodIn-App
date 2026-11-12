@@ -57,7 +57,7 @@ supabase functions deploy create-staff-account
 supabase functions deploy complete-staff-password-change
 ```
 
-The functions use Supabase's server-side service-role environment variable; never add a service-role key to the web app or its `VITE_` variables.
+These browser-callable functions disable the gateway's JWT precheck so CORS preflight requests can reach them. Each function validates the user's JWT and required role itself. Keep the matching `verify_jwt = false` entries in `supabase/config.toml`. The functions use Supabase's server-side service-role environment variable; never add a service-role key to the web app or its `VITE_` variables.
 
 ## Checks
 
