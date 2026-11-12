@@ -51,7 +51,8 @@
           "locationWhenInUsePermission": "Allow BloodIn to access your location so you can find nearby donors and requests."
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-asset"
     ],
     "extra": {
       "router": {},
