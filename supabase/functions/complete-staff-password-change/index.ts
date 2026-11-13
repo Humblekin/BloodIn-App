@@ -48,8 +48,8 @@ const handleRequest = async (req: Request) => {
     return jsonResponse('Invalid request body', 400);
   }
   const password = typeof body.password === 'string' ? body.password : '';
-  if (password.length < 12 || password.length > 128) {
-    return jsonResponse('Choose a password with at least 12 characters', 400);
+  if (password.length < 6 || password.length > 128) {
+    return jsonResponse('Choose a password with at least 6 characters', 400);
   }
   const temporaryPasswordHash = authData.user.app_metadata?.temporary_password_hash;
   if (typeof temporaryPasswordHash !== 'string') {

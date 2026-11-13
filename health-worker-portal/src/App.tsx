@@ -608,8 +608,8 @@ export default function App() {
 
   const handleFirstPasswordChange = async (event: FormEvent) => {
     event.preventDefault();
-    if (newPassword.length < 12) {
-      setAuthError('Choose a password with at least 12 characters.');
+    if (newPassword.length < 6) {
+      setAuthError('Choose a password with at least 6 characters.');
       return;
     }
     if (newPassword !== confirmNewPassword) {
@@ -1196,7 +1196,7 @@ export default function App() {
           <h1>Set your password</h1>
           <p className="muted">
             Your facility admin gave you a temporary password. Create a new password before
-            continuing. Use at least 12 characters; you’ll set up two-factor authentication next.
+            continuing. Use at least 6 characters; you’ll set up two-factor authentication next.
           </p>
           {authError && <div className="alert error">{authError}</div>}
           <div className="field">
@@ -1205,7 +1205,7 @@ export default function App() {
               id="newPassword"
               type="password"
               autoComplete="new-password"
-              minLength={12}
+              minLength={6}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
               required
@@ -1217,7 +1217,7 @@ export default function App() {
               id="confirmNewPassword"
               type="password"
               autoComplete="new-password"
-              minLength={12}
+              minLength={6}
               value={confirmNewPassword}
               onChange={(event) => setConfirmNewPassword(event.target.value)}
               required
