@@ -620,7 +620,7 @@ export default function App() {
     setAuthBusy(true);
     setAuthError(null);
     const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
-    if (passwordError) {
+    if (passwordError && passwordError.code !== 'same_password') {
       setAuthError(passwordError.message);
       setAuthBusy(false);
       return;
@@ -630,9 +630,7 @@ export default function App() {
       body: { password: newPassword },
     });
     if (error) {
-      setAuthError(
-        'Your password was updated, but we could not finish setting up your account. Try again or contact your facility admin.'
-      );
+      setAuthError(await getEdgeFunctionErrorMessage(error));
       setAuthBusy(false);
       return;
     }
