@@ -73,8 +73,8 @@ const handleRequest = async (req: Request) => {
   }
 
   const appMetadata = { ...user.app_metadata };
-  delete appMetadata.must_change_password;
-  delete appMetadata.temporary_password_hash;
+  appMetadata.must_change_password = false;
+  appMetadata.temporary_password_hash = null;
   const { error: updateError } = await adminClient.auth.admin.updateUserById(authData.user.id, {
     password,
     app_metadata: appMetadata,
