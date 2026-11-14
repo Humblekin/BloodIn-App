@@ -28,18 +28,12 @@ const handleRequest = async (req: Request) => {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const passwordClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   const { data: authData, error: authError } = await authClient.auth.getUser();
   if (authError || !authData.user) return jsonResponse('Authentication required', 401);
-  if (authData.user.app_metadata?.must_change_password !== true) {
-    return jsonResponse('No temporary password change is required', 400);
-  }
 
   let body: Record<string, unknown>;
   try {
@@ -51,18 +45,23 @@ const handleRequest = async (req: Request) => {
   if (password.length < 6 || password.length > 128) {
     return jsonResponse('Choose a password with at least 6 characters', 400);
   }
-  const temporaryPasswordHash = authData.user.app_metadata?.temporary_password_hash;
+
+  const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(
+    authData.user.id,
+  );
+  const user = userData.user;
+  if (userError || !user) {
+    console.error('[complete-staff-password-change] Could not verify the staff account');
+    return jsonResponse('Could not verify the password change', 500);
+  }
+  if (user.app_metadata?.must_change_password !== true) {
+    return jsonResponse('No temporary password change is required', 400);
+  }
+
+  const temporaryPasswordHash = user.app_metadata?.temporary_password_hash;
   if (typeof temporaryPasswordHash !== 'string') {
     console.error('[complete-staff-password-change] Temporary password hash is missing');
     return jsonResponse('Could not verify the temporary password', 500);
-  }
-
-  const { data: signedIn, error: passwordError } = await passwordClient.auth.signInWithPassword({
-    email: authData.user.email ?? '',
-    password,
-  });
-  if (passwordError || signedIn.user?.id !== authData.user.id) {
-    return jsonResponse('Could not verify your updated password', 400);
   }
 
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
@@ -73,24 +72,16 @@ const handleRequest = async (req: Request) => {
     return jsonResponse('Change your temporary password before continuing', 400);
   }
 
-  const { data: userData, error: userError } = await adminClient.auth.admin.getUserById(
-    authData.user.id,
-  );
-  const user = userData.user;
-  if (userError || !user) {
-    console.error('[complete-staff-password-change] Could not verify the staff account');
-    return jsonResponse('Could not verify the password change', 500);
-  }
-
   const appMetadata = { ...user.app_metadata };
   delete appMetadata.must_change_password;
   delete appMetadata.temporary_password_hash;
-  const { error: updateError } = await adminClient.auth.admin.updateUserById(user.id, {
+  const { error: updateError } = await adminClient.auth.admin.updateUserById(authData.user.id, {
+    password,
     app_metadata: appMetadata,
   });
   if (updateError) {
-    console.error('[complete-staff-password-change] Could not clear the temporary password flag');
-    return jsonResponse('Could not finish setting up the staff account', 500);
+    console.error('[complete-staff-password-change] Could not update the staff password');
+    return jsonResponse(updateError.message, 400);
   }
 
   return jsonResponse('Password change completed');

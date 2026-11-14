@@ -619,13 +619,6 @@ export default function App() {
 
     setAuthBusy(true);
     setAuthError(null);
-    const { error: passwordError } = await supabase.auth.updateUser({ password: newPassword });
-    if (passwordError && passwordError.code !== 'same_password') {
-      setAuthError(passwordError.message);
-      setAuthBusy(false);
-      return;
-    }
-
     const { error } = await supabase.functions.invoke('complete-staff-password-change', {
       body: { password: newPassword },
     });
