@@ -93,6 +93,19 @@ const handleRequest = async (req: Request) => {
     return jsonResponse(updateError.message, 400);
   }
 
+  const { data: verifiedUserData, error: verificationError } =
+    await adminClient.auth.admin.getUserById(authData.user.id);
+  const verifiedUser = verifiedUserData.user;
+  if (
+    verificationError ||
+    !verifiedUser ||
+    verifiedUser.app_metadata?.must_change_password === true ||
+    typeof verifiedUser.app_metadata?.temporary_password_hash === 'string'
+  ) {
+    console.error('[complete-staff-password-change] Temporary password flag was not cleared');
+    return jsonResponse('Could not finish setting up the staff account', 500);
+  }
+
   return jsonResponse('Password change completed');
 };
 

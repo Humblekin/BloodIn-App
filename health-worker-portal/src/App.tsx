@@ -628,14 +628,20 @@ export default function App() {
       return;
     }
 
-    setNewPassword('');
-    setConfirmNewPassword('');
     const { error: refreshError } = await supabase.auth.refreshSession();
     if (refreshError) {
-      setAuthError('Password updated. Sign out, then sign in again with your new password to continue.');
-      setAuthBusy(false);
-      return;
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: session?.user.email ?? email.trim(),
+        password: newPassword,
+      });
+      if (signInError) {
+        setAuthError(`Password was updated, but sign-in failed: ${getSafeSignInErrorMessage(signInError)}`);
+        setAuthBusy(false);
+        return;
+      }
     }
+    setNewPassword('');
+    setConfirmNewPassword('');
     await syncAuth();
     setAuthBusy(false);
   };
