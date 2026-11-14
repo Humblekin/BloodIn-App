@@ -79,7 +79,16 @@ const handleRequest = async (req: Request) => {
     password,
     app_metadata: appMetadata,
   });
-  if (updateError) {
+  if (updateError?.code === 'same_password') {
+    const { error: metadataError } = await adminClient.auth.admin.updateUserById(
+      authData.user.id,
+      { app_metadata: appMetadata },
+    );
+    if (metadataError) {
+      console.error('[complete-staff-password-change] Could not clear the temporary password flag');
+      return jsonResponse(metadataError.message, 400);
+    }
+  } else if (updateError) {
     console.error('[complete-staff-password-change] Could not update the staff password');
     return jsonResponse(updateError.message, 400);
   }
